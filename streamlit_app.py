@@ -14,12 +14,24 @@ custom_css = """
 <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
     
+    /* 🚨 [핵심 수정] 다크모드 글씨 날아감 방지 (기본 텍스트 색상 강제 고정) */
     .stApp {
-        background-color: #f4f7f9; 
+        background-color: #f4f7f9 !important; 
+        color: #0f172a !important; /* 기본 글씨색 짙은 네이비로 고정 */
         font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
         letter-spacing: -0.02em; 
     }
     
+    [data-testid="stSidebar"] { 
+        background-color: #ffffff !important; 
+        border-right: 1px solid #e2e8f0; 
+    }
+    
+    /* 사이드바, 라디오버튼, 파일업로드 텍스트 색상 고정 */
+    .stMarkdown p, .stMarkdown li, .stRadio label, .stSlider label, .stFileUploader label, .stFileUploader div {
+        color: #0f172a !important;
+    }
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
@@ -50,8 +62,6 @@ custom_css = """
     }
     .hero-title { color: #0f172a; font-size: 2.4rem; font-weight: 900; line-height: 1.3; margin-bottom: 0.8rem; }
     .hero-subtitle { color: #64748b; font-size: 1.05rem; font-weight: 500; }
-
-    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
     
     .glass-card {
         background: white; border-radius: 16px; padding: 2rem;
@@ -64,7 +74,6 @@ custom_css = """
         border-bottom: 2px solid #e2e8f0; padding-bottom: 0.8rem; margin-bottom: 1.2rem;
     }
     
-    /* 청약서 고지 의무 매칭 박스 디자인 */
     .duty-box {
         background-color: #ffffff; border-radius: 12px;
         border: 1px solid #e2e8f0; border-left: 6px solid #be123c;
@@ -79,6 +88,7 @@ custom_css = """
     .dataframe { font-size: 0.9rem !important; }
 </style>
 """
+
 st.markdown(custom_css, unsafe_allow_html=True)
 
 st.markdown("""
@@ -314,7 +324,7 @@ if uploaded_files:
                                 'med': total_med_days,
                                 'detail': detail
                             })
-                            
+
                 # ---------------------------------------------------------
                 # 화면 출력 1: 알릴 의무 요약 리포트 (청약서용)
                 # ---------------------------------------------------------
