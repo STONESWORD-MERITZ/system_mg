@@ -199,11 +199,13 @@ if uploaded_files:
                     nums = re.findall(r'\d+', str(text))
                     return int(nums[0]) if nums else 0
 
-              # ---------------------------------------------------------
+# ---------------------------------------------------------
                 # 1차 분석: 질병별 누적 일수(중복 제거) 및 치료 종료일 정밀 계산
                 # ---------------------------------------------------------
                 from datetime import timedelta
-                today = datetime.now()
+                
+                # AI 엔진의 기준 시간을 '실제 오늘'이 아닌 '사용자가 달력에서 선택한 날짜'로 강제 조작합니다.
+                today = datetime(reference_date.year, reference_date.month, reference_date.day)
                 
                 disease_stats = defaultdict(lambda: {
                     'visit_dates': set(),
