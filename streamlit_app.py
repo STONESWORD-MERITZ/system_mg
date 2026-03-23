@@ -14,10 +14,10 @@ custom_css = """
 <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
     
-    /* 🚨 [핵심 수정] 다크모드 글씨 날아감 방지 (기본 텍스트 색상 강제 고정) */
+    /* 🚨 3차 다크모드 완벽 방어: 사이드바 및 라디오 버튼 가장 깊은 태그까지 강제 고정 */
     .stApp {
         background-color: #f4f7f9 !important; 
-        color: #0f172a !important; /* 기본 글씨색 짙은 네이비로 고정 */
+        color: #0f172a !important; 
         font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
         letter-spacing: -0.02em; 
     }
@@ -27,8 +27,12 @@ custom_css = """
         border-right: 1px solid #e2e8f0; 
     }
     
-    /* 사이드바, 라디오버튼, 파일업로드 텍스트 색상 고정 */
-    .stMarkdown p, .stMarkdown li, .stRadio label, .stSlider label, .stFileUploader label, .stFileUploader div {
+    /* 스트림릿 특유의 깊게 숨겨진 라디오 버튼 텍스트(p, div, span, label)까지 모두 색상 강제 지정 */
+    [data-testid="stSidebar"] p, 
+    [data-testid="stSidebar"] span, 
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] div[data-testid="stMarkdownContainer"],
+    .stRadio p, .stRadio span, .stRadio label, .stRadio div {
         color: #0f172a !important;
     }
 
@@ -122,15 +126,18 @@ with st.sidebar:
     else:
         st.markdown("""
         **[3-5-5 간편심사 고지 기준]**
-        1. **3개월:** 입원, 수술, 추가/재검사 소견 <br><span style='color:#be123c; font-size:0.8rem;'>(※단순 통원/투약은 면제)</span>
+        1. **3개월:** 입원, 수술, 추가/재검사 소견 <br>
+        <span style='color:#be123c; font-size:0.85rem; line-height:1.4; display:block; margin-top:4px;'>
+        <b>[🔥실무 심사 룰 완벽 적용]</b><br>
+        - 3개월 내 <b>최초 진단</b>: 치료 중(투약 포함) 거절, <b>완치 다음날부터 승인</b><br>
+        - 3개월 이전 <b>만성 질환</b>: 동일 약(정기검사) 통과, <b>약 변경/추가 시 거절</b></span>
         2. **5년:** 입원, 수술 <br><span style='color:#be123c; font-size:0.8rem;'>(※7일 통원/30일 투약 면제)</span>
-        3. **5년 (6대 질병):** 암, 뇌졸중, 심근경색, 협심증, 심장판막증, 간경화 등
+        3. **5년 (6대 질병):** 암, 뇌출혈, 뇌경색, 심근경색, 협심증, 심장판막증, 간경화 등
         """, unsafe_allow_html=True)
     
-    # 엔진에서 사용할 고정 변수 세팅
     search_years = 5
     disease_12_list = ["C", "D0", "I10", "I11", "I12", "I13", "I14", "I15", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74", "I60", "I61", "I62", "I63", "I64", "E10", "E11", "E12", "E13", "E14", "B20", "B21", "B22", "B23", "B24", "K60", "K61", "K62", "K64", "K65"]
-    disease_6_list = ["C", "D0", "I60", "I61", "I62", "I63", "I64", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74"]
+    disease_6_list = ["C", "D0", "I60", "I61", "I62", "I63", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74"]
     surg_keywords = ["수술", "절제", "시술", "천자", "주입", "절개", "적출", "봉합", "결찰", "종양", "폴립", "결절"]
     test_keywords = ["검사", "초음파", "내시경", "촬영", "MRI", "CT", "조직", "생검", "판독", "X-RAY", "X-ray"]
 
@@ -186,20 +193,23 @@ if uploaded_files:
                     nums = re.findall(r'\d+', str(text))
                     return int(nums[0]) if nums else 0
 
-               # ---------------------------------------------------------
+              # ---------------------------------------------------------
                 # 1차 분석: 질병별 누적 일수(중복 제거) 및 치료 종료일 정밀 계산
                 # ---------------------------------------------------------
                 from datetime import timedelta
+                today = datetime.now()
                 
-                # dict 형태로 세밀한 데이터 트래킹
                 disease_stats = defaultdict(lambda: {
-                    'visit_dates': set(),     # 중복 제거된 실제 통원일자
-                    'med_dates': {},          # {처방일자: 투약일수(최대값)} -> 중복 처방 합산 방지
-                    'tests_found': set(),     # 발견된 검사명 (1년 내 재검사 판별용)
+                    'visit_dates': set(),
+                    'med_dates': {},
+                    'tests_found': set(),
                     'is_inpatient': False,
                     'is_surgery': False,
+                    'first_date': '2099-12-31',  # 최초 진단일 추적용
                     'latest_date': '2000-01-01',
-                    'name': ''
+                    'name': '',
+                    'med_names_before_90': set(), # 3개월 이전 약품/진료 기록
+                    'med_names_in_90': set()      # 3개월 이내 약품/진료 기록
                 })
                 
                 for idx, row in df.iterrows():
@@ -208,7 +218,6 @@ if uploaded_files:
                     name_str = get_val(row, ['상병명', '약품명', '진료내역'])
                     in_out = get_val(row, ['입원', '외래'])
                     
-                    # 숫자 파싱 시 에러 방지
                     v_days_raw = get_val(row, ['내원일수', '진료일수'])
                     m_days_raw = get_val(row, ['투약일수'])
                     v_days = int(re.findall(r'\d+', v_days_raw)[0]) if re.findall(r'\d+', v_days_raw) else 0
@@ -219,7 +228,6 @@ if uploaded_files:
                     
                     stats = disease_stats[group_key]
                     
-                    # 날짜 형식 표준화
                     date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', date_str) or re.search(r'(\d{8})', date_str)
                     clean_date = ""
                     if date_match:
@@ -228,20 +236,27 @@ if uploaded_files:
                             clean_date = f"{clean_date[:4]}-{clean_date[4:6]}-{clean_date[6:]}"
                     
                     if clean_date:
-                        # 통원일 누적 (Set으로 중복 날짜 자동 제거)
+                        clean_date_dt = datetime.strptime(clean_date, "%Y-%m-%d")
+                        days_from_today = (today - clean_date_dt).days
+                        
                         stats['visit_dates'].add(clean_date)
                         
-                        # 투약일 누적 (같은 날짜면 가장 긴 처방일수 1개만 적용하여 중복 뻥튀기 방지)
                         if clean_date not in stats['med_dates'] or m_days > stats['med_dates'][clean_date]:
                             stats['med_dates'][clean_date] = m_days
                             
-                        if clean_date > stats['latest_date']:
-                            stats['latest_date'] = clean_date
+                        if clean_date > stats['latest_date']: stats['latest_date'] = clean_date
+                        if clean_date < stats['first_date']: stats['first_date'] = clean_date
+                        
+                        # 3개월 기준 전/후의 처방 및 진료내역을 분리하여 저장 (약 변경 감지용)
+                        if name_str:
+                            if days_from_today <= 90:
+                                stats['med_names_in_90'].add(name_str)
+                            else:
+                                stats['med_names_before_90'].add(name_str)
 
                     if '입원' in in_out or '입원' in name_str: stats['is_inpatient'] = True
                     if any(kw in name_str for kw in surg_keywords if kw): stats['is_surgery'] = True
                     
-                    # 1년 이내 추가검사 판별을 위한 검사 키워드 수집
                     for kw in test_keywords:
                         if kw in name_str:
                             stats['tests_found'].add(name_str)
@@ -296,21 +311,42 @@ if uploaded_files:
                                 reasons.append(("[4번 질문] 5년 이내 12대 중증/항문 질환", f"12대 질환(직장/항문 포함) 코드 매칭 ({key})"))
                                 
                     else:
+                        # -else:
                         # --- [간편심사 (3-5-5 기준) 룰] ---
-                        # [1번 질문] 3개월 이내 입원/수술/추가검사소견 (단순 통원/투약 면제)
+                        first_d = datetime.strptime(stats['first_date'], "%Y-%m-%d")
+                        days_passed_from_first = (today - first_d).days
+                        
+                        # [간편 1번] 3개월 이내 입원, 수술, 추가/재검사 소견
                         if days_passed_from_start <= 90:
                             if stats['is_inpatient'] or stats['is_surgery'] or stats['tests_found']:
-                                reasons.append(("[간편 1번] 3개월 이내 입원/수술/검사 소견", "3개월 내 입원/수술 또는 검사 이력 발견 (단순 통원/투약 아님)"))
+                                reasons.append(("[간편 1번] 3개월 이내 입원/수술/검사", "3개월 내 입원, 수술 또는 검사 이력 발견"))
                         
-                        # [2번 질문] 5년 이내 입원/수술 (7일 통원, 30일 투약 면제)
+                        # 🚨 [현장 실무 룰] 3개월 이내 신규 진단 vs 만성 질환 약 변경 감지
+                        if days_passed_from_end <= 90 or days_passed_from_start <= 90:
+                            # 1. 3개월 이내 '최초 진단'인 경우
+                            if days_passed_from_first <= 90:
+                                if days_passed_from_end <= 0: # 아직 약을 먹고 있거나 오늘이 약 떨어지는 날
+                                    reasons.append(("[실무 룰] 3개월 이내 신규 진단 & 치료중", f"최초 진단일({stats['first_date']})이 3개월 이내이며 현재 치료/투약 중 (완치 전 가입 불가, {treatment_end_d.strftime('%Y-%m-%d')} 다음날부터 가능)"))
+                                # 완치(days_passed_from_end > 0)면 1번 질문 자동 패스 (가입 가능!)
+                                
+                            # 2. 과거부터 약을 먹던 '만성 질환'인 경우
+                            else:
+                                # 3개월 이내에 새롭게 추가되거나 변경된 처방이 있는지 확인
+                                new_drugs = stats['med_names_in_90'] - stats['med_names_before_90']
+                                if new_drugs:
+                                    diff_str = ", ".join(list(new_drugs)[:2])
+                                    reasons.append(("[실무 룰] 3개월 이내 약 변경/추가 의심", f"기존과 다른 약/진료내역 발견 ({diff_str}). 동일 약 처방(정기검사)이 아닐 경우 가입 불가"))
+                        
+                        # [간편 2번] 5년 이내 입원/수술 (7일 통원, 30일 투약 면제)
                         if days_passed_from_end <= 1825:
                             if stats['is_inpatient']: reasons.append(("[간편 2번] 5년 이내 입원", "입원 이력 확인"))
                             if stats['is_surgery']: reasons.append(("[간편 2번] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
                         
-                        # [3번 질문] 5년 이내 6대 중증질환 (암, 뇌졸중, 심근경색, 협심증, 심장판막, 간경화)
+                        # [간편 3번] 5년 이내 6대 중증질환 (암, 뇌출혈, 뇌경색, 심근경색, 협심증, 심장판막증, 간경화)
                         if days_passed_from_start <= 1825 and key != "":
                             if any(key.startswith(c) for c in disease_6_list):
                                 reasons.append(("[간편 3번] 5년 이내 6대 중증 질환", f"6대 중증 질환 코드 매칭 ({key})"))
+
 
                     # 리포트 생성
                     if reasons:
