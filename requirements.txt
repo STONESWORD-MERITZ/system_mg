@@ -1,1 +1,2 @@
-streamlit
+streamlitpdfplumber
+pandas
