@@ -3,224 +3,343 @@ import pdfplumber
 import pandas as pd
 import re
 from datetime import datetime
+from collections import defaultdict
 
 # ==========================================
-# 1. 웹 페이지 기본 설정 & 테마 (타이틀 탭 변경)
+# 1. 웹 페이지 기본 설정 & 테마
 # ==========================================
-st.set_page_config(page_title="MG Scanner | 스마트 알릴의무 검증", layout="wide", page_icon="🛡️")
+st.set_page_config(page_title="AdvisorHub | 스마트 고지 스캐너", layout="wide", page_icon="🏛️")
 
-# ==========================================
-# 2. 커스텀 CSS (이민규 브랜딩: 신뢰의 네이비 & 모던 UI)
-# ==========================================
 custom_css = """
 <style>
-    /* 전체 배경색을 아주 밝은 쿨그레이로 설정하여 깔끔함 강조 */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+    
     .stApp {
-        background-color: #f8fafc;
+        background-color: #f4f7f9; 
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        letter-spacing: -0.02em; 
     }
     
-    /* 기본 스트림릿 메뉴 숨기기 (완성된 앱 느낌 부여) */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* 커스텀 헤더 디자인 */
-    .main-header {
-        background: linear-gradient(90deg, #1e3a8a 0%, #3b82f6 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        color: white;
+    .hero-container {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 24px;
+        padding: 2.5rem 2rem;
         margin-bottom: 2rem;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        text-align: center;
+        position: relative;
+        overflow: hidden;
     }
-    .main-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        margin: 0;
-        letter-spacing: -1px;
+    .hero-container::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 5px;
+        background: linear-gradient(90deg, #1e3a8a, #3b82f6, #0ea5e9);
     }
-    .main-subtitle {
-        font-size: 1.1rem;
-        font-weight: 400;
-        margin-top: 0.5rem;
-        opacity: 0.9;
+    .hero-tag {
+        display: inline-block;
+        background-color: #eff6ff; color: #2563eb;
+        font-size: 0.8rem; font-weight: 800;
+        padding: 0.4rem 1.2rem; border-radius: 50px;
+        margin-bottom: 1rem;
+    }
+    .hero-title { color: #0f172a; font-size: 2.4rem; font-weight: 900; line-height: 1.3; margin-bottom: 0.8rem; }
+    .hero-subtitle { color: #64748b; font-size: 1.05rem; font-weight: 500; }
+
+    [data-testid="stSidebar"] { background-color: #ffffff; border-right: 1px solid #e2e8f0; }
+    
+    .glass-card {
+        background: white; border-radius: 16px; padding: 2rem;
+        border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+        margin-bottom: 1.5rem;
     }
     
-    /* 사이드바 디자인 변경 */
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e2e8f0;
+    .report-title {
+        color: #1e3a8a; font-weight: 900; font-size: 1.3rem;
+        border-bottom: 2px solid #e2e8f0; padding-bottom: 0.8rem; margin-bottom: 1.2rem;
     }
     
-    /* 데이터프레임(표) 스타일링 */
-    .dataframe {
-        border-radius: 8px !important;
-        overflow: hidden !important;
-        border: 1px solid #e2e8f0 !important;
+    /* 청약서 고지 의무 매칭 박스 디자인 */
+    .duty-box {
+        background-color: #ffffff; border-radius: 12px;
+        border: 1px solid #e2e8f0; border-left: 6px solid #be123c;
+        padding: 1.2rem 1.5rem; margin-bottom: 1rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
     }
+    .duty-title { color: #be123c; font-weight: 900; font-size: 1.1rem; margin-bottom: 0.6rem; display: flex; align-items: center; gap: 8px;}
+    .duty-tag { background: #fee2e2; color: #9f1239; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 800; }
+    .duty-detail { color: #334155; font-size: 0.95rem; font-weight: 500; line-height: 1.6; }
+    .duty-stats { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e2e8f0; font-size: 0.85rem; color: #64748b; }
+    
+    .dataframe { font-size: 0.9rem !important; }
 </style>
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
-# ==========================================
-# 3. 메인 화면 헤더 (독자 브랜드 로고 영역)
-# ==========================================
 st.markdown("""
-<div class="main-header">
-    <h1 class="main-title">🛡️ MG Medical Scanner</h1>
-    <p class="main-subtitle">이민규 대표의 지능형 알릴의무 및 언더라이팅 검증 솔루션</p>
+<div class="hero-container">
+    <span class="hero-tag">AdvisorHub Underwriting Engine</span>
+    <h1 class="hero-title">알릴 의무 완벽 매칭 <span style="color: #1e3a8a;">스마트 고지 스캐너</span></h1>
+    <p class="hero-subtitle">흩어진 진료기록의 '누적 투약일수'와 '통원일수'를 AI가 자동 합산하여<br>청약서 고지 의무 질문(1번~5번)에 정확히 매칭해 드립니다.</p>
 </div>
 """, unsafe_allow_html=True)
 
-
 # ==========================================
-# 4. 좌측 사이드바: 표준 알릴 의무 체크리스트
+# 2. 사이드바 설정 (정확한 시스템 룰 안내)
 # ==========================================
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/2621/2621011.png", width=50) # 임시 신뢰 아이콘
-    st.markdown("### ⚙️ 검증 엔진 설정")
-    st.caption("고객 상담 내용에 맞춰 필터를 조정하세요.")
+    st.markdown("<h2 style='color:#1e3a8a; font-weight:900;'>⚖️ 표준 알릴 의무 심사 룰</h2>", unsafe_allow_html=True)
+    st.caption("본 시스템은 설계사의 정확한 정보 전달을 위해 아래의 '표준 고지 의무' 기준을 엄격하게 적용하여 데이터를 분석합니다. (임의 변경 불가)")
     
     st.divider()
+    st.markdown("""
+    **1. 최근 3개월 이내**
+    진찰, 검사, 의심소견, 치료, 입원, 수술, 투약
+    *`💡TIP: 투약은 처방일수까지 치료 기간으로 자동 합산됩니다.`*
     
-    st.subheader("1. 단기 진료 이력")
-    check_3months = st.checkbox("최근 3개월 이내 모든 진료", value=True)
-    check_1year = st.checkbox("최근 1년 이내 추가검사 의심", value=False)
+    **2. 최근 1년 이내**
+    추가검사 (재검사)
+    *`💡TIP: 세부내역의 검사 이력을 분석하여 정기검진이 아닌 의심 건을 추적합니다.`*
     
-    st.divider()
+    **3. 최근 5년 이내 (계속하여)**
+    입원, 수술, 7일 이상 치료, 30일 이상 투약
+    *`💡TIP: 중복된 날짜를 제외하고 '실제 통원/투약 일수'를 정확히 계산합니다.`*
     
-    st.subheader("2. 장기 진료 이력")
-    check_5years_heavy = st.checkbox("최근 5년 이내 입원/수술/7일치료", value=True)
-    check_10years_heavy = st.checkbox("최근 10년 이내 입원/수술", value=False)
+    **4. 최근 5년 이내 (12대 질병)**
+    암, 백혈병, 고혈압, 협심증, 심근경색, 심장판막증, 간경화, 뇌출혈, 뇌경색, 당뇨, 에이즈, **직장/항문 질환**
+    *`💡TIP: 가장 실수가 많은 치핵, 치루 등 항문 질환 코드를 완벽히 잡아냅니다.`*
+    """)
     
-    st.divider()
-    
-    st.subheader("3. 11대 중증 질환")
-    check_11_diseases = st.checkbox("최근 5년 이내 11대 질병", value=True)
-    st.caption("C(암), I10-15(고혈압), E10-14(당뇨) 등")
-    disease_11_prefixes = ["C", "D0", "I10", "I11", "I12", "I13", "I14", "I15", "I20", "I21", "I22", "I3", "K74", "I6", "E10", "E11", "E12", "E13", "E14", "B2"]
-
-    st.divider()
-    keyword_input = st.text_input("🔍 추가 위험 키워드", "수술, 종양, 폴립, 결절")
-    keywords = [k.strip() for k in keyword_input.split(",") if k.strip()]
-
+    # 엔진에서 사용할 고정 변수 세팅 (사이드바에는 안 보이지만 내부에서 엄격하게 사용)
+    search_years = 5
+    disease_12_list = ["C", "D0", "I10", "I11", "I12", "I13", "I14", "I15", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74", "I60", "I61", "I62", "I63", "I64", "E10", "E11", "E12", "E13", "E14", "B20", "B21", "B22", "B23", "B24", "K60", "K61", "K62", "K64", "K65"]
+    surg_keywords = ["수술", "절제", "시술", "천자", "주입", "절개", "적출", "봉합", "결찰", "종양", "폴립", "결절"]
+    test_keywords = ["검사", "초음파", "내시경", "촬영", "MRI", "CT", "조직", "생검", "판독", "X-RAY", "X-ray"]
 
 # ==========================================
-# 5. 메인 화면: 파일 업로드 및 데이터 처리
+# 3. 데이터 분석 및 추출 코어
 # ==========================================
-st.markdown("#### 📑 심평원 진료자료 업로드")
-uploaded_file = st.file_uploader("PDF 파일을 드래그하거나 클릭하여 업로드하세요.", type="pdf")
+st.markdown("### 📑 심평원 진료자료 업로드 (여러 파일 업로드 가능)")
+uploaded_files = st.file_uploader("기본진료, 세부진료, 처방조제 등 PDF 파일을 올려주세요.", type="pdf", accept_multiple_files=True)
 
-if uploaded_file is not None:
-    with st.spinner('데이터 추출 및 AI 검증 엔진 가동 중...'):
+if uploaded_files:
+    with st.spinner('다중 문서 구조 분석 및 누적 일수 연산 중...'):
         try:
-            with pdfplumber.open(uploaded_file) as pdf:
-                all_data = []
-                for page in pdf.pages:
-                    tables = page.extract_tables()
-                    for table in tables:
-                        cleaned_table = [row for row in table if row and any(cell for cell in row)]
-                        all_data.extend(cleaned_table)
+            unified_records = []
+            file_dataframes = {} # 개별 파일별 데이터프레임 저장용
             
-            if all_data:
-                df = pd.DataFrame(all_data[1:], columns=all_data[0])
-                df = df.fillna("")
+            # 여러 개의 PDF 파일에서 데이터 긁어오기
+            for uploaded_file in uploaded_files:
+                file_records = [] # 현재 파일 전용 레코드
+                with pdfplumber.open(uploaded_file) as pdf:
+                    for page in pdf.pages:
+                        tables = page.extract_tables()
+                        for table in tables:
+                            if not table or len(table) < 2: continue
+                            # 헤더 추출 및 공백 제거
+                            headers = [str(h).replace('\n', '').replace(' ', '') if h else f"col_{i}" for i, h in enumerate(table[0])]
+                            
+                            for row in table[1:]:
+                                if not any(row): continue
+                                if "순번" in str(row[0]): continue # 중간에 낀 헤더 무시
+                                
+                                record = {h: str(v).replace('\n', ' ').strip() if v else "" for h, v in zip(headers, row)}
+                                unified_records.append(record)
+                                file_records.append(record)
+                                
+                # 각 파일별로 깨끗한 독립 표(DataFrame) 생성
+                if file_records:
+                    file_df = pd.DataFrame(file_records).fillna("")
+                    file_dataframes[uploaded_file.name] = file_df
+            
+            if unified_records:
+                df = pd.DataFrame(unified_records)
                 
-                df = df[~df.iloc[:, 0].astype(str).str.contains("순번", na=False)]
-                df = df.reset_index(drop=True)
-                df.index = df.index + 1
+                # 핵심 데이터 파싱 함수
+                def get_val(row, possible_keys):
+                    for k in row.keys():
+                        if any(pk in k for pk in possible_keys): 
+                            val = row[k]
+                            # 빈 값(NaN 등 float 형태)을 에러 없는 문자열로 안전하게 변환
+                            return str(val).strip() if pd.notna(val) else ""
+                    return ""
                 
-                code_col_idx = -1
-                in_out_col_idx = -1
-                days_col_idx = -1
-                
-                for i, col_name in enumerate(df.columns):
-                    col_str = str(col_name).replace(" ", "")
-                    if "코드" in col_str: code_col_idx = i
-                    if "입원" in col_str or "외래" in col_str: in_out_col_idx = i
-                    if "내원일수" in col_str: days_col_idx = i
+                def extract_number(text):
+                    nums = re.findall(r'\d+', str(text))
+                    return int(nums[0]) if nums else 0
 
-                flagged_count = 0
+               # ---------------------------------------------------------
+                # 1차 분석: 질병별 누적 일수(중복 제거) 및 치료 종료일 정밀 계산
+                # ---------------------------------------------------------
+                from datetime import timedelta
                 
-                def highlight_underwriting(row):
-                    global flagged_count
-                    row_str_list = row.astype(str).tolist()
-                    row_text = " ".join(row_str_list)
+                # dict 형태로 세밀한 데이터 트래킹
+                disease_stats = defaultdict(lambda: {
+                    'visit_dates': set(),     # 중복 제거된 실제 통원일자
+                    'med_dates': {},          # {처방일자: 투약일수(최대값)} -> 중복 처방 합산 방지
+                    'tests_found': set(),     # 발견된 검사명 (1년 내 재검사 판별용)
+                    'is_inpatient': False,
+                    'is_surgery': False,
+                    'latest_date': '2000-01-01',
+                    'name': ''
+                })
+                
+                for idx, row in df.iterrows():
+                    date_str = get_val(row, ['진료시작일'])
+                    code_str = get_val(row, ['코드']).upper()
+                    name_str = get_val(row, ['상병명', '약품명', '진료내역'])
+                    in_out = get_val(row, ['입원', '외래'])
                     
-                    days_passed = 9999
-                    date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', row_text)
+                    # 숫자 파싱 시 에러 방지
+                    v_days_raw = get_val(row, ['내원일수', '진료일수'])
+                    m_days_raw = get_val(row, ['투약일수'])
+                    v_days = int(re.findall(r'\d+', v_days_raw)[0]) if re.findall(r'\d+', v_days_raw) else 0
+                    m_days = int(re.findall(r'\d+', m_days_raw)[0]) if re.findall(r'\d+', m_days_raw) else 0
+                    
+                    group_key = code_str if code_str and code_str != "$" else name_str[:15]
+                    if not group_key: continue
+                    
+                    stats = disease_stats[group_key]
+                    
+                    # 날짜 형식 표준화
+                    date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', date_str) or re.search(r'(\d{8})', date_str)
+                    clean_date = ""
                     if date_match:
-                        try:
-                            row_date = datetime.strptime(date_match.group(), "%Y-%m-%d")
-                            days_passed = (datetime.now() - row_date).days
-                        except:
-                            pass
+                        clean_date = date_match.group()
+                        if len(clean_date) == 8 and "-" not in clean_date:
+                            clean_date = f"{clean_date[:4]}-{clean_date[4:6]}-{clean_date[6:]}"
                     
-                    years_passed = days_passed / 365.25
-                    is_flagged = False
-                    
-                    is_inpatient = False
-                    if in_out_col_idx != -1 and "입원" in str(row.iloc[in_out_col_idx]):
-                        is_inpatient = True
-                    
-                    visit_days = 0
-                    if days_col_idx != -1:
-                        digits = re.findall(r'\d+', str(row.iloc[days_col_idx]))
-                        if digits: visit_days = int(digits[0])
+                    if clean_date:
+                        # 통원일 누적 (Set으로 중복 날짜 자동 제거)
+                        stats['visit_dates'].add(clean_date)
                         
-                    disease_code = ""
-                    if code_col_idx != -1:
-                        disease_code = str(row.iloc[code_col_idx]).strip().upper()
+                        # 투약일 누적 (같은 날짜면 가장 긴 처방일수 1개만 적용하여 중복 뻥튀기 방지)
+                        if clean_date not in stats['med_dates'] or m_days > stats['med_dates'][clean_date]:
+                            stats['med_dates'][clean_date] = m_days
+                            
+                        if clean_date > stats['latest_date']:
+                            stats['latest_date'] = clean_date
 
-                    if check_3months and days_passed <= 90: is_flagged = True
-                        
-                    if check_1year and years_passed <= 1: is_flagged = True
-                        
-                    if check_5years_heavy and years_passed <= 5:
-                        if is_inpatient or visit_days >= 7: is_flagged = True
-                        for kw in keywords: 
-                            if kw and kw in row_text: is_flagged = True
-                                
-                    if check_11_diseases and years_passed <= 5 and disease_code:
-                        for prefix in disease_11_prefixes:
-                            if disease_code.startswith(prefix):
-                                is_flagged = True
-                                break
-                                
-                    if check_10years_heavy and years_passed <= 10:
-                        if is_inpatient: is_flagged = True
-                        for kw in keywords: 
-                            if kw and kw in row_text: is_flagged = True
+                    if '입원' in in_out or '입원' in name_str: stats['is_inpatient'] = True
+                    if any(kw in name_str for kw in surg_keywords if kw): stats['is_surgery'] = True
                     
-                    if is_flagged:
-                        if 'is_counted' not in row:
-                            flagged_count += 1
-                        # 고급스러운 경고 색상 (연한 주황/코랄)
-                        return ['background-color: #fff7ed; color: #c2410c; font-weight: bold;'] * len(row)
+                    # 1년 이내 추가검사 판별을 위한 검사 키워드 수집
+                    for kw in test_keywords:
+                        if kw in name_str:
+                            stats['tests_found'].add(name_str)
+                            break
+                            
+                    if name_str and not stats['name']: stats['name'] = name_str
+
+                # ---------------------------------------------------------
+                # 2차 분석: "정확도 중심"의 고지 의무 1~4번 룰 매칭
+                # ---------------------------------------------------------
+                today = datetime.now()
+                summary_reports = defaultdict(list)
+                flagged_codes = set()
+                
+                for key, stats in disease_stats.items():
+                    if stats['latest_date'] == '2000-01-01': continue
+                    
+                    # 1. 실제 투약일수와 통원일수 정밀 계산
+                    total_visit_days = len(stats['visit_dates'])
+                    total_med_days = sum(stats['med_dates'].values())
+                    
+                    # 2. '치료 종료일' 계산 (마지막 진료일 + 마지막 진료일의 처방일수)
+                    latest_d = datetime.strptime(stats['latest_date'], "%Y-%m-%d")
+                    latest_med_days = stats['med_dates'].get(stats['latest_date'], 0)
+                    treatment_end_d = latest_d + timedelta(days=latest_med_days)
+                    
+                    days_passed_from_end = (today - treatment_end_d).days
+                    days_passed_from_start = (today - latest_d).days
+                    
+                    reasons = []
+                    
+                    # [1번 질문] 최근 3개월 이내 (투약은 처방 종료일 기준)
+                    if days_passed_from_end <= 90:
+                        reasons.append(("[1번 질문] 3개월 이내 의료행위 (투약 포함)", f"치료/투약 완료 후 90일 미경과 (종료추정일: {treatment_end_d.strftime('%Y-%m-%d')})"))
+                    
+                    # [2번 질문] 최근 1년 이내 추가검사/재검사 의심
+                    if 90 < days_passed_from_start <= 365:
+                        if stats['tests_found']:
+                            tests_str = ", ".join(list(stats['tests_found'])[:2]) # 너무 길면 2개만 노출
+                            reasons.append(("[2번 질문] 1년 이내 추가검사(재검사) 의심", f"세부내역 내 검사기록 발견 ({tests_str} 등) - 추적관찰이 아닌 추가/재검사인지 확인 요망"))
+                            
+                    # [3번 질문] 최근 5년 이내 7일/30일/입원/수술
+                    if days_passed_from_end <= 1825:
+                        if stats['is_inpatient']: reasons.append(("[3번 질문] 5년 이내 입원", "입원 이력 확인"))
+                        if stats['is_surgery']: reasons.append(("[3번 질문] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
+                        if total_visit_days >= 7: reasons.append(("[3번 질문] 5년 이내 계속하여 7일 이상 치료", f"동일 원인 실제 누적 통원 {total_visit_days}일"))
+                        if total_med_days >= 30: reasons.append(("[3번 질문] 5년 이내 계속하여 30일 이상 투약", f"동일 원인 실제 누적 투약 {total_med_days}일"))
+                    
+                    # [4번 질문] 최근 5년 이내 12대 중증 질환 (직장/항문 포함)
+                    if days_passed_from_start <= 1825 and key != "":
+                        if any(key.startswith(c) for c in disease_12_list):
+                            reasons.append(("[4번 질문] 5년 이내 12대 중증/항문 질환", f"12대 질환(직장/항문 포함) 코드 매칭 ({key})"))
+
+                    # 리포트 생성
+                    if reasons:
+                        flagged_codes.add(key)
+                        for q_title, detail in reasons:
+                            summary_reports[q_title].append({
+                                'date': stats['latest_date'],
+                                'code': key if re.match(r'^[A-Z]', key) else "-",
+                                'name': stats['name'],
+                                'visit': total_visit_days,
+                                'med': total_med_days,
+                                'detail': detail
+                            })
+
+                # ---------------------------------------------------------
+                # 화면 출력 1: 알릴 의무 요약 리포트 (청약서용)
+                # ---------------------------------------------------------
+                st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
+                st.markdown("<div class='report-title'>📝 알릴 의무(고지) 판정 리포트 <span style='font-size:0.9rem; color:#64748b; font-weight:500;'>(청약서 입력용)</span></div>", unsafe_allow_html=True)
+                
+                if not summary_reports:
+                    st.success("✅ **고지 대상 없음:** 설정하신 기간 내에 알릴 의무에 해당하는 위험 이력이 발견되지 않았습니다. 표준체로 심사를 진행하십시오.")
+                else:
+                    st.warning("⚠️ 아래 항목들은 AI가 누적 일수를 계산하여 찾아낸 **필수 고지 대상**입니다. 청약서 해당 번호에 정확히 기재하십시오.")
+                    
+                   # 1번부터 5번 질문 순서대로 정렬하여 출력
+                    for q_title in sorted(summary_reports.keys()):
+                        items = summary_reports[q_title]
+                        box_html = f"<div class='duty-box'>\n<div class='duty-title'><span class='duty-tag'>해당</span> {q_title}</div>\n"
+                        for item in items:
+                            box_html += f"<div class='duty-detail'>\n• <b>최종진료: {item['date']}</b> | {item['name']} ({item['code']}) <br>\n<span style='color:#be123c; font-size:0.85rem; margin-left:12px;'>↳ 매칭사유: {item['detail']}</span>\n</div>\n"
+                            box_html += f"<div class='duty-stats' style='margin-left:12px; margin-bottom:10px;'>📊 이 질환의 전체 이력: 누적 통원 <b>{item['visit']}일</b> / 누적 투약 <b>{item['med']}일</b></div>\n"
+                        box_html += "</div>"
+                        st.markdown(box_html, unsafe_allow_html=True)
+                
+                st.markdown("</div>", unsafe_allow_html=True)
+
+                # ---------------------------------------------------------
+                # 화면 출력 2: 원본 데이터 (개별 파일별 분리 출력 및 하이라이트)
+                # ---------------------------------------------------------
+                st.markdown("#### 🔍 심평원 추출 원본 데이터 (파일별 분리)")
+                
+                def highlight_danger(row):
+                    # 개별 표에서도 위험 코드가 있는지 확인하여 빨간색 칠하기
+                    c_str = get_val(row, ['코드']).upper()
+                    n_str = get_val(row, ['상병명', '약품명', '진료내역'])
+                    row_key = c_str if c_str and c_str != "$" else n_str[:15]
+                    
+                    if row_key in flagged_codes:
+                        return ['background-color: #fff1f2; color: #be123c; font-weight: 500;'] * len(row)
                     return [''] * len(row)
 
-                st.markdown("<br>", unsafe_allow_html=True)
-                styled_df = df.style.apply(highlight_underwriting, axis=1)
-                st.dataframe(styled_df, use_container_width=True)
+                # 파일 이름별로 깔끔하게 나누어서 표를 그려줍니다.
+                for file_name, f_df in file_dataframes.items():
+                    st.markdown(f"**📄 {file_name}**")
+                    styled_f_df = f_df.style.apply(highlight_danger, axis=1)
+                    st.dataframe(styled_f_df, use_container_width=True)
                 
-                # ==========================================
-                # 6. 결과 리포트 섹션
-                # ==========================================
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown("#### 💡 매칭 솔루션 리포트")
-                
-                if flagged_count == 0:
-                    st.success("✅ **검증 완료: 설정된 고지 의무 위반 의심 내역이 없습니다.**")
-                    col1, col2 = st.columns(2)
-                    with col1: st.info("🏆 **1순위 추천**\n\n**일반 건강보험 (표준체)**\n\n할증이나 부담보 없이 최적의 조건으로 심사 진행이 가능합니다.")
-                    with col2: st.info("🌟 **2순위 추천**\n\n**건강고지형/할인형 상품**\n\n고객의 우수한 건강 등급을 활용해 보험료 할인을 제안하세요.")
-                else:
-                    st.warning(f"⚠️ **검증 완료: 총 {flagged_count}건의 고지 의무 대상 의심 내역이 발견되었습니다.**")
-                    col1, col2 = st.columns(2)
-                    with col1: st.error("🏥 **1순위 추천 플랜**\n\n**간편건강보험 (유병자 3-N-5 플랜)**\n\n발견된 병력의 경과 기간을 확인하여 무서류 통과가 가능한 간편 플랜을 적용하세요.")
-                    with col2: st.warning("⚖️ **2순위 추천 플랜**\n\n**표준체 부분 부담보 심사**\n\n경증 질환인 경우, 해당 신체 부위만 부담보 조건을 걸고 일반 상품으로 승인을 유도하세요.")
-
             else:
-                st.error("PDF에서 데이터를 추출할 수 없습니다. 심평원 양식이 맞는지 확인해 주세요.")
+                st.error("PDF 파일에서 표 데이터를 추출하지 못했습니다. 비밀번호가 걸려있거나, 스캔된 이미지 형태인지 확인해 주세요.")
         except Exception as e:
-            st.error(f"시스템 오류: {e}")
+            st.error(f"시스템 분석 중 오류가 발생했습니다: {e}")
