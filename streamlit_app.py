@@ -90,34 +90,37 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 사이드바 설정 (정확한 시스템 룰 안내)
+# 2. 사이드바 설정 (상품 유형 선택 및 룰 안내)
 # ==========================================
 with st.sidebar:
-    st.markdown("<h2 style='color:#1e3a8a; font-weight:900;'>⚖️ 표준 알릴 의무 심사 룰</h2>", unsafe_allow_html=True)
-    st.caption("본 시스템은 설계사의 정확한 정보 전달을 위해 아래의 '표준 고지 의무' 기준을 엄격하게 적용하여 데이터를 분석합니다. (임의 변경 불가)")
+    st.markdown("<h2 style='color:#1e3a8a; font-weight:900;'>⚖️ 심사 유형 및 룰 설정</h2>", unsafe_allow_html=True)
+    st.caption("고객에게 제안할 상품군을 선택하면, 해당 상품의 고지 의무 기준에 맞춰 엔진이 자동으로 필터링을 변경합니다.")
     
     st.divider()
-    st.markdown("""
-    **1. 최근 3개월 이내**
-    진찰, 검사, 의심소견, 치료, 입원, 수술, 투약
-    *`💡TIP: 투약은 처방일수까지 치료 기간으로 자동 합산됩니다.`*
+    st.markdown("#### 🎯 상품 유형 선택")
+    product_type = st.radio("알릴 의무 기준", ["건강체/표준체 (일반심사)", "간편심사 (유병자 3-5-5 기준)"])
     
-    **2. 최근 1년 이내**
-    추가검사 (재검사)
-    *`💡TIP: 세부내역의 검사 이력을 분석하여 정기검진이 아닌 의심 건을 추적합니다.`*
+    st.divider()
+    if product_type == "건강체/표준체 (일반심사)":
+        st.markdown("""
+        **[표준체 고지 기준]**
+        1. **3개월:** 진찰,검사,치료,입원,수술,투약
+        2. **1년:** 추가검사 (재검사)
+        3. **5년:** 입원, 수술, 7일 이상 치료, 30일 이상 투약
+        4. **5년 (12대 질병):** 암, 백혈병, 고혈압, 협심증, 심근경색, 심장판막증, 간경화, 뇌출혈, 뇌경색, 당뇨, 에이즈, 직장/항문 질환
+        """)
+    else:
+        st.markdown("""
+        **[3-5-5 간편심사 고지 기준]**
+        1. **3개월:** 입원, 수술, 추가/재검사 소견 <br><span style='color:#be123c; font-size:0.8rem;'>(※단순 통원/투약은 면제)</span>
+        2. **5년:** 입원, 수술 <br><span style='color:#be123c; font-size:0.8rem;'>(※7일 통원/30일 투약 면제)</span>
+        3. **5년 (6대 질병):** 암, 뇌졸중, 심근경색, 협심증, 심장판막증, 간경화 등
+        """, unsafe_allow_html=True)
     
-    **3. 최근 5년 이내 (계속하여)**
-    입원, 수술, 7일 이상 치료, 30일 이상 투약
-    *`💡TIP: 중복된 날짜를 제외하고 '실제 통원/투약 일수'를 정확히 계산합니다.`*
-    
-    **4. 최근 5년 이내 (12대 질병)**
-    암, 백혈병, 고혈압, 협심증, 심근경색, 심장판막증, 간경화, 뇌출혈, 뇌경색, 당뇨, 에이즈, **직장/항문 질환**
-    *`💡TIP: 가장 실수가 많은 치핵, 치루 등 항문 질환 코드를 완벽히 잡아냅니다.`*
-    """)
-    
-    # 엔진에서 사용할 고정 변수 세팅 (사이드바에는 안 보이지만 내부에서 엄격하게 사용)
+    # 엔진에서 사용할 고정 변수 세팅
     search_years = 5
     disease_12_list = ["C", "D0", "I10", "I11", "I12", "I13", "I14", "I15", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74", "I60", "I61", "I62", "I63", "I64", "E10", "E11", "E12", "E13", "E14", "B20", "B21", "B22", "B23", "B24", "K60", "K61", "K62", "K64", "K65"]
+    disease_6_list = ["C", "D0", "I60", "I61", "I62", "I63", "I64", "I20", "I21", "I22", "I05", "I06", "I07", "I08", "I09", "I34", "I35", "I36", "I37", "I38", "K703", "K74"]
     surg_keywords = ["수술", "절제", "시술", "천자", "주입", "절개", "적출", "봉합", "결찰", "종양", "폴립", "결절"]
     test_keywords = ["검사", "초음파", "내시경", "촬영", "MRI", "CT", "조직", "생검", "판독", "X-RAY", "X-ray"]
 
@@ -237,7 +240,7 @@ if uploaded_files:
                     if name_str and not stats['name']: stats['name'] = name_str
 
                 # ---------------------------------------------------------
-                # 2차 분석: "정확도 중심"의 고지 의무 1~4번 룰 매칭
+                # 2차 분석: "정확도 중심"의 고지 의무 룰 매칭 (상품 유형별 분기)
                 # ---------------------------------------------------------
                 today = datetime.now()
                 summary_reports = defaultdict(list)
@@ -246,11 +249,9 @@ if uploaded_files:
                 for key, stats in disease_stats.items():
                     if stats['latest_date'] == '2000-01-01': continue
                     
-                    # 1. 실제 투약일수와 통원일수 정밀 계산
                     total_visit_days = len(stats['visit_dates'])
                     total_med_days = sum(stats['med_dates'].values())
                     
-                    # 2. '치료 종료일' 계산 (마지막 진료일 + 마지막 진료일의 처방일수)
                     latest_d = datetime.strptime(stats['latest_date'], "%Y-%m-%d")
                     latest_med_days = stats['med_dates'].get(stats['latest_date'], 0)
                     treatment_end_d = latest_d + timedelta(days=latest_med_days)
@@ -260,27 +261,46 @@ if uploaded_files:
                     
                     reasons = []
                     
-                    # [1번 질문] 최근 3개월 이내 (투약은 처방 종료일 기준)
-                    if days_passed_from_end <= 90:
-                        reasons.append(("[1번 질문] 3개월 이내 의료행위 (투약 포함)", f"치료/투약 완료 후 90일 미경과 (종료추정일: {treatment_end_d.strftime('%Y-%m-%d')})"))
-                    
-                    # [2번 질문] 최근 1년 이내 추가검사/재검사 의심
-                    if 90 < days_passed_from_start <= 365:
-                        if stats['tests_found']:
-                            tests_str = ", ".join(list(stats['tests_found'])[:2]) # 너무 길면 2개만 노출
-                            reasons.append(("[2번 질문] 1년 이내 추가검사(재검사) 의심", f"세부내역 내 검사기록 발견 ({tests_str} 등) - 추적관찰이 아닌 추가/재검사인지 확인 요망"))
-                            
-                    # [3번 질문] 최근 5년 이내 7일/30일/입원/수술
-                    if days_passed_from_end <= 1825:
-                        if stats['is_inpatient']: reasons.append(("[3번 질문] 5년 이내 입원", "입원 이력 확인"))
-                        if stats['is_surgery']: reasons.append(("[3번 질문] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
-                        if total_visit_days >= 7: reasons.append(("[3번 질문] 5년 이내 계속하여 7일 이상 치료", f"동일 원인 실제 누적 통원 {total_visit_days}일"))
-                        if total_med_days >= 30: reasons.append(("[3번 질문] 5년 이내 계속하여 30일 이상 투약", f"동일 원인 실제 누적 투약 {total_med_days}일"))
-                    
-                    # [4번 질문] 최근 5년 이내 12대 중증 질환 (직장/항문 포함)
-                    if days_passed_from_start <= 1825 and key != "":
-                        if any(key.startswith(c) for c in disease_12_list):
-                            reasons.append(("[4번 질문] 5년 이내 12대 중증/항문 질환", f"12대 질환(직장/항문 포함) 코드 매칭 ({key})"))
+                    if product_type == "건강체/표준체 (일반심사)":
+                        # --- [표준체 일반심사 룰] ---
+                        # [1번 질문] 최근 3개월 이내 (투약은 처방 종료일 기준)
+                        if days_passed_from_end <= 90:
+                            reasons.append(("[1번 질문] 3개월 이내 의료행위 (투약 포함)", f"치료/투약 완료 후 90일 미경과 (종료추정일: {treatment_end_d.strftime('%Y-%m-%d')})"))
+                        
+                        # [2번 질문] 최근 1년 이내 추가검사/재검사 의심
+                        if 90 < days_passed_from_start <= 365:
+                            if stats['tests_found']:
+                                tests_str = ", ".join(list(stats['tests_found'])[:2])
+                                reasons.append(("[2번 질문] 1년 이내 추가검사(재검사) 의심", f"세부내역 내 검사기록 발견 ({tests_str} 등)"))
+                                
+                        # [3번 질문] 최근 5년 이내 7일/30일/입원/수술
+                        if days_passed_from_end <= 1825:
+                            if stats['is_inpatient']: reasons.append(("[3번 질문] 5년 이내 입원", "입원 이력 확인"))
+                            if stats['is_surgery']: reasons.append(("[3번 질문] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
+                            if total_visit_days >= 7: reasons.append(("[3번 질문] 5년 이내 계속하여 7일 이상 치료", f"동일 원인 누적 통원 {total_visit_days}일"))
+                            if total_med_days >= 30: reasons.append(("[3번 질문] 5년 이내 계속하여 30일 이상 투약", f"동일 원인 누적 투약 {total_med_days}일"))
+                        
+                        # [4번 질문] 최근 5년 이내 12대 중증 질환 (직장/항문 포함)
+                        if days_passed_from_start <= 1825 and key != "":
+                            if any(key.startswith(c) for c in disease_12_list):
+                                reasons.append(("[4번 질문] 5년 이내 12대 중증/항문 질환", f"12대 질환(직장/항문 포함) 코드 매칭 ({key})"))
+                                
+                    else:
+                        # --- [간편심사 (3-5-5 기준) 룰] ---
+                        # [1번 질문] 3개월 이내 입원/수술/추가검사소견 (단순 통원/투약 면제)
+                        if days_passed_from_start <= 90:
+                            if stats['is_inpatient'] or stats['is_surgery'] or stats['tests_found']:
+                                reasons.append(("[간편 1번] 3개월 이내 입원/수술/검사 소견", "3개월 내 입원/수술 또는 검사 이력 발견 (단순 통원/투약 아님)"))
+                        
+                        # [2번 질문] 5년 이내 입원/수술 (7일 통원, 30일 투약 면제)
+                        if days_passed_from_end <= 1825:
+                            if stats['is_inpatient']: reasons.append(("[간편 2번] 5년 이내 입원", "입원 이력 확인"))
+                            if stats['is_surgery']: reasons.append(("[간편 2번] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
+                        
+                        # [3번 질문] 5년 이내 6대 중증질환 (암, 뇌졸중, 심근경색, 협심증, 심장판막, 간경화)
+                        if days_passed_from_start <= 1825 and key != "":
+                            if any(key.startswith(c) for c in disease_6_list):
+                                reasons.append(("[간편 3번] 5년 이내 6대 중증 질환", f"6대 중증 질환 코드 매칭 ({key})"))
 
                     # 리포트 생성
                     if reasons:
@@ -294,7 +314,7 @@ if uploaded_files:
                                 'med': total_med_days,
                                 'detail': detail
                             })
-
+                            
                 # ---------------------------------------------------------
                 # 화면 출력 1: 알릴 의무 요약 리포트 (청약서용)
                 # ---------------------------------------------------------
