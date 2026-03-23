@@ -110,13 +110,12 @@ with st.sidebar:
     st.markdown("<h2 style='color:#1e3a8a; font-weight:900;'>⚖️ 심사 유형 및 룰 설정</h2>", unsafe_allow_html=True)
     st.caption("고객에게 제안할 상품군을 선택하면, 해당 상품의 고지 의무 기준에 맞춰 엔진이 자동으로 필터링을 변경합니다.")
     
-   st.divider()
+    st.divider()
     st.markdown("#### 🎯 상품 유형 선택")
     product_type = st.radio("알릴 의무 기준", ["건강체/표준체 (일반심사)", "간편심사 (유병자 3-5-5 기준)"])
     
     st.divider()
     st.markdown("#### 📅 심사 기준일 (청약예정일)")
-    # 기본값은 '오늘(today)'로 잡히며, 달력을 눌러 마음대로 날짜를 바꿀 수 있습니다.
     reference_date = st.date_input("기준일 설정", datetime.today())
     st.caption("날짜를 미래로 변경하여 '고지의무 소멸 시점'을 미리 시뮬레이션 할 수 있습니다.")
     
@@ -199,7 +198,7 @@ if uploaded_files:
                     nums = re.findall(r'\d+', str(text))
                     return int(nums[0]) if nums else 0
 
-# ---------------------------------------------------------
+                # ---------------------------------------------------------
                 # 1차 분석: 질병별 누적 일수(중복 제거) 및 치료 종료일 정밀 계산
                 # ---------------------------------------------------------
                 from datetime import timedelta
