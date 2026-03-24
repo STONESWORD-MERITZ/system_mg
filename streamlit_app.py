@@ -199,24 +199,24 @@ if uploaded_files:
                     return int(nums[0]) if nums else 0
 
                 # ---------------------------------------------------------
-                # 1차 분석: 질병별 누적 일수(중복 제거) 및 치료 종료일 정밀 계산
+                # 1차 분석: 정밀 데이터 추출 (최초진단, 입원일수, 수술명 추적)
                 # ---------------------------------------------------------
                 from datetime import timedelta
                 
-                # AI 엔진의 기준 시간을 '실제 오늘'이 아닌 '사용자가 달력에서 선택한 날짜'로 강제 조작합니다.
+                # AI 엔진의 기준 시간을 '사용자가 달력에서 선택한 날짜'로 강제 조작
                 today = datetime(reference_date.year, reference_date.month, reference_date.day)
                 
                 disease_stats = defaultdict(lambda: {
                     'visit_dates': set(),
                     'med_dates': {},
                     'tests_found': set(),
-                    'is_inpatient': False,
-                    'is_surgery': False,
-                    'first_date': '2099-12-31',  # 최초 진단일 추적용
+                    'inpatient_days': 0, # [추가] 총 입원 일수 합산
+                    'surgeries': set(),  # [추가] 수술/시술명 상세 수집
+                    'first_date': '2099-12-31', # [추가] 최초 진단일
                     'latest_date': '2000-01-01',
                     'name': '',
-                    'med_names_before_90': set(), # 3개월 이전 약품/진료 기록
-                    'med_names_in_90': set()      # 3개월 이내 약품/진료 기록
+                    'med_names_before_90': set(),
+                    'med_names_in_90': set()
                 })
                 
                 for idx, row in df.iterrows():
@@ -246,7 +246,11 @@ if uploaded_files:
                         clean_date_dt = datetime.strptime(clean_date, "%Y-%m-%d")
                         days_from_today = (today - clean_date_dt).days
                         
-                        stats['visit_dates'].add(clean_date)
+                        # [핵심] 입원일수와 통원일수를 분리하여 정확히 합산
+                        if '입원' in in_out or '입원' in name_str:
+                            stats['inpatient_days'] += v_days if v_days > 0 else 1
+                        else:
+                            stats['visit_dates'].add(clean_date)
                         
                         if clean_date not in stats['med_dates'] or m_days > stats['med_dates'][clean_date]:
                             stats['med_dates'][clean_date] = m_days
@@ -254,15 +258,17 @@ if uploaded_files:
                         if clean_date > stats['latest_date']: stats['latest_date'] = clean_date
                         if clean_date < stats['first_date']: stats['first_date'] = clean_date
                         
-                        # 3개월 기준 전/후의 처방 및 진료내역을 분리하여 저장 (약 변경 감지용)
                         if name_str:
                             if days_from_today <= 90:
                                 stats['med_names_in_90'].add(name_str)
                             else:
                                 stats['med_names_before_90'].add(name_str)
 
-                    if '입원' in in_out or '입원' in name_str: stats['is_inpatient'] = True
-                    if any(kw in name_str for kw in surg_keywords if kw): stats['is_surgery'] = True
+                    # 수술/시술 키워드 검출 및 상세명 저장
+                    for kw in surg_keywords:
+                        if kw in name_str:
+                            stats['surgeries'].add(name_str)
+                            break
                     
                     for kw in test_keywords:
                         if kw in name_str:
@@ -271,105 +277,100 @@ if uploaded_files:
                             
                     if name_str and not stats['name']: stats['name'] = name_str
 
+          # ---------------------------------------------------------
+                # 2차 분석: 30일 투약, 총 입원일수 등을 적용한 룰 매칭
                 # ---------------------------------------------------------
-                # 2차 분석: "정확도 중심"의 고지 의무 룰 매칭 (상품 유형별 분기)
-                # ---------------------------------------------------------
-                today = datetime.now()
                 summary_reports = defaultdict(list)
                 flagged_codes = set()
                 
                 for key, stats in disease_stats.items():
                     if stats['latest_date'] == '2000-01-01': continue
                     
-                    total_visit_days = len(stats['visit_dates'])
+                    # 통원일수(중복제거) + 입원일수 총합
+                    total_visit_days = len(stats['visit_dates']) + stats['inpatient_days']
                     total_med_days = sum(stats['med_dates'].values())
                     
                     latest_d = datetime.strptime(stats['latest_date'], "%Y-%m-%d")
                     latest_med_days = stats['med_dates'].get(stats['latest_date'], 0)
                     treatment_end_d = latest_d + timedelta(days=latest_med_days)
                     
+                    first_d = datetime.strptime(stats['first_date'], "%Y-%m-%d")
+                    
                     days_passed_from_end = (today - treatment_end_d).days
                     days_passed_from_start = (today - latest_d).days
+                    days_passed_from_first = (today - first_d).days
                     
                     reasons = []
                     
                     if product_type == "건강체/표준체 (일반심사)":
-                        # --- [표준체 일반심사 룰] ---
-                        # [1번 질문] 최근 3개월 이내 (투약은 처방 종료일 기준)
                         if days_passed_from_end <= 90:
                             reasons.append(("[1번 질문] 3개월 이내 의료행위 (투약 포함)", f"치료/투약 완료 후 90일 미경과 (종료추정일: {treatment_end_d.strftime('%Y-%m-%d')})"))
                         
-                        # [2번 질문] 최근 1년 이내 추가검사/재검사 의심
                         if 90 < days_passed_from_start <= 365:
                             if stats['tests_found']:
                                 tests_str = ", ".join(list(stats['tests_found'])[:2])
                                 reasons.append(("[2번 질문] 1년 이내 추가검사(재검사) 의심", f"세부내역 내 검사기록 발견 ({tests_str} 등)"))
                                 
-                        # [3번 질문] 최근 5년 이내 7일/30일/입원/수술
                         if days_passed_from_end <= 1825:
-                            if stats['is_inpatient']: reasons.append(("[3번 질문] 5년 이내 입원", "입원 이력 확인"))
-                            if stats['is_surgery']: reasons.append(("[3번 질문] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
-                            if total_visit_days >= 7: reasons.append(("[3번 질문] 5년 이내 계속하여 7일 이상 치료", f"동일 원인 누적 통원 {total_visit_days}일"))
-                            if total_med_days >= 30: reasons.append(("[3번 질문] 5년 이내 계속하여 30일 이상 투약", f"동일 원인 누적 투약 {total_med_days}일"))
+                            if stats['inpatient_days'] > 0: 
+                                reasons.append(("[3번 질문] 5년 이내 입원", f"입원 총 {stats['inpatient_days']}일 이력 확인"))
+                            if stats['surgeries']: 
+                                surg_str = ", ".join(list(stats['surgeries'])[:2])
+                                reasons.append(("[3번 질문] 5년 이내 수술", f"수술/시술 이력 확인 ({surg_str})"))
+                            if total_visit_days >= 7: 
+                                reasons.append(("[3번 질문] 5년 이내 계속하여 7일 이상 치료", f"동일 원인 누적 진료일수 {total_visit_days}일"))
+                            # [핵심 추가] 30일 이상 투약 강력 필터링
+                            if total_med_days >= 30: 
+                                reasons.append(("[3번 질문] 5년 이내 계속하여 30일 이상 투약", f"동일 원인 누적 투약 {total_med_days}일"))
                         
-                        # [4번 질문] 최근 5년 이내 12대 중증 질환 (직장/항문 포함)
                         if days_passed_from_start <= 1825 and key != "":
                             if any(key.startswith(c) for c in disease_12_list):
                                 reasons.append(("[4번 질문] 5년 이내 12대 중증/항문 질환", f"12대 질환(직장/항문 포함) 코드 매칭 ({key})"))
                                 
                     else:
-                        # -else:
                         # --- [간편심사 (3-5-5 기준) 룰] ---
-                        first_d = datetime.strptime(stats['first_date'], "%Y-%m-%d")
-                        days_passed_from_first = (today - first_d).days
-                        
-                        # [간편 1번] 3개월 이내 입원, 수술, 추가/재검사 소견
                         if days_passed_from_start <= 90:
-                            if stats['is_inpatient'] or stats['is_surgery'] or stats['tests_found']:
-                                reasons.append(("[간편 1번] 3개월 이내 입원/수술/검사", "3개월 내 입원, 수술 또는 검사 이력 발견"))
+                            if stats['inpatient_days'] > 0 or stats['surgeries'] or stats['tests_found']:
+                                reasons.append(("[간편 1번] 3개월 이내 입원/수술/검사 소견", "3개월 내 입원, 수술 또는 검사 이력 발견"))
                         
-                        # 🚨 [현장 실무 룰] 3개월 이내 신규 진단 vs 만성 질환 약 변경 감지
                         if days_passed_from_end <= 90 or days_passed_from_start <= 90:
-                            # 1. 3개월 이내 '최초 진단'인 경우
                             if days_passed_from_first <= 90:
-                                if days_passed_from_end <= 0: # 아직 약을 먹고 있거나 오늘이 약 떨어지는 날
+                                if days_passed_from_end <= 0: 
                                     reasons.append(("[실무 룰] 3개월 이내 신규 진단 & 치료중", f"최초 진단일({stats['first_date']})이 3개월 이내이며 현재 치료/투약 중 (완치 전 가입 불가, {treatment_end_d.strftime('%Y-%m-%d')} 다음날부터 가능)"))
-                                # 완치(days_passed_from_end > 0)면 1번 질문 자동 패스 (가입 가능!)
-                                
-                            # 2. 과거부터 약을 먹던 '만성 질환'인 경우
                             else:
-                                # 3개월 이내에 새롭게 추가되거나 변경된 처방이 있는지 확인
                                 new_drugs = stats['med_names_in_90'] - stats['med_names_before_90']
                                 if new_drugs:
                                     diff_str = ", ".join(list(new_drugs)[:2])
                                     reasons.append(("[실무 룰] 3개월 이내 약 변경/추가 의심", f"기존과 다른 약/진료내역 발견 ({diff_str}). 동일 약 처방(정기검사)이 아닐 경우 가입 불가"))
                         
-                        # [간편 2번] 5년 이내 입원/수술 (7일 통원, 30일 투약 면제)
                         if days_passed_from_end <= 1825:
-                            if stats['is_inpatient']: reasons.append(("[간편 2번] 5년 이내 입원", "입원 이력 확인"))
-                            if stats['is_surgery']: reasons.append(("[간편 2번] 5년 이내 수술", "수술/시술 관련 키워드 확인"))
+                            if stats['inpatient_days'] > 0: 
+                                reasons.append(("[간편 2번] 5년 이내 입원", f"입원 총 {stats['inpatient_days']}일 이력 확인"))
+                            if stats['surgeries']: 
+                                surg_str = ", ".join(list(stats['surgeries'])[:2])
+                                reasons.append(("[간편 2번] 5년 이내 수술", f"수술/시술 이력 확인 ({surg_str})"))
                         
-                        # [간편 3번] 5년 이내 6대 중증질환 (암, 뇌출혈, 뇌경색, 심근경색, 협심증, 심장판막증, 간경화)
                         if days_passed_from_start <= 1825 and key != "":
                             if any(key.startswith(c) for c in disease_6_list):
                                 reasons.append(("[간편 3번] 5년 이내 6대 중증 질환", f"6대 중증 질환 코드 매칭 ({key})"))
 
-
-                    # 리포트 생성
                     if reasons:
                         flagged_codes.add(key)
                         for q_title, detail in reasons:
                             summary_reports[q_title].append({
-                                'date': stats['latest_date'],
+                                'first_date': stats['first_date'],
+                                'latest_date': stats['latest_date'],
                                 'code': key if re.match(r'^[A-Z]', key) else "-",
                                 'name': stats['name'],
                                 'visit': total_visit_days,
                                 'med': total_med_days,
+                                'inpatient': stats['inpatient_days'],
+                                'surgeries': stats['surgeries'],
                                 'detail': detail
                             })
 
-                # ---------------------------------------------------------
-                # 화면 출력 1: 알릴 의무 요약 리포트 (청약서용)
+# ---------------------------------------------------------
+                # 화면 출력 1: 종합 알릴 의무 요약 리포트 (청약서용)
                 # ---------------------------------------------------------
                 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
                 st.markdown("<div class='report-title'>📝 알릴 의무(고지) 판정 리포트 <span style='font-size:0.9rem; color:#64748b; font-weight:500;'>(청약서 입력용)</span></div>", unsafe_allow_html=True)
@@ -377,15 +378,19 @@ if uploaded_files:
                 if not summary_reports:
                     st.success("✅ **고지 대상 없음:** 설정하신 기간 내에 알릴 의무에 해당하는 위험 이력이 발견되지 않았습니다. 표준체로 심사를 진행하십시오.")
                 else:
-                    st.warning("⚠️ 아래 항목들은 AI가 누적 일수를 계산하여 찾아낸 **필수 고지 대상**입니다. 청약서 해당 번호에 정확히 기재하십시오.")
+                    st.warning("⚠️ 아래 항목들은 AI가 분석하여 찾아낸 **필수 고지 대상**입니다. 청약서 해당 번호에 기재하십시오.")
                     
-                   # 1번부터 5번 질문 순서대로 정렬하여 출력
                     for q_title in sorted(summary_reports.keys()):
                         items = summary_reports[q_title]
                         box_html = f"<div class='duty-box'>\n<div class='duty-title'><span class='duty-tag'>해당</span> {q_title}</div>\n"
                         for item in items:
-                            box_html += f"<div class='duty-detail'>\n• <b>최종진료: {item['date']}</b> | {item['name']} ({item['code']}) <br>\n<span style='color:#be123c; font-size:0.85rem; margin-left:12px;'>↳ 매칭사유: {item['detail']}</span>\n</div>\n"
-                            box_html += f"<div class='duty-stats' style='margin-left:12px; margin-bottom:10px;'>📊 이 질환의 전체 이력: 누적 통원 <b>{item['visit']}일</b> / 누적 투약 <b>{item['med']}일</b></div>\n"
+                            box_html += f"<div class='duty-detail'>\n• <b>최초진단: {item['first_date']}</b> ~ <b>최종진료: {item['latest_date']}</b> | {item['name']} ({item['code']}) <br>\n<span style='color:#be123c; font-size:0.85rem; margin-left:12px;'>↳ 매칭사유: {item['detail']}</span>\n</div>\n"
+                            
+                            # 추가된 수술 및 입원 정보 UI 노출
+                            surg_text = f" / 수술 <b>{len(item['surgeries'])}건</b>" if item['surgeries'] else ""
+                            inpt_text = f" / 입원 <b>{item['inpatient']}일</b>" if item['inpatient'] > 0 else ""
+                            
+                            box_html += f"<div class='duty-stats' style='margin-left:12px; margin-bottom:10px;'>📊 전체 이력: 누적 진료(입원포함) <b>{item['visit']}일</b> / 누적 투약 <b>{item['med']}일</b>{inpt_text}{surg_text}</div>\n"
                         box_html += "</div>"
                         st.markdown(box_html, unsafe_allow_html=True)
                 
