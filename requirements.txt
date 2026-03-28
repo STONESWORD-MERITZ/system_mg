@@ -3,3 +3,4 @@ pdfplumber
 pandas
 reportlab
 anthropic>=0.24.0
+python-dotenv

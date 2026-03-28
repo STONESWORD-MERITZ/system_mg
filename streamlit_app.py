@@ -4,6 +4,8 @@ import pandas as pd
 import re
 from datetime import datetime, timedelta
 from collections import defaultdict
+#from dotenv import load_dotenv
+#load_dotenv()
 
 # 🚨 [여기에 추가!] 클로드 AI 도구 상자 가져오기
 import anthropic
