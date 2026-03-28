@@ -5,6 +5,10 @@ import re
 from datetime import datetime, timedelta
 from collections import defaultdict
 
+# 🚨 [여기에 추가!] 클로드 AI 도구 상자 가져오기
+import anthropic
+import json
+
 # ==========================================
 # 페이지 기본 설정
 # ==========================================
@@ -1226,216 +1230,188 @@ elif menu == "disclosure":
             if name_str and not s["name"]:
                 s["name"] = name_str
 
+# ══════════════════════════════════════════════════
+        # Step 3: Claude API 분석 (룰베이스 대체)
         # ══════════════════════════════════════════════════
-        # Step 3: 고지 룰 매칭
-        #
-        # [정확한 기준 적용]
-        # 건강체 1번 : 3개월 이내 진찰/검사/치료/입원/수술/투약
-        # 건강체 2번 : 3개월 이내 혈압강하제 등 상시 복용 (처방조제 파일 약품명으로 판단)
-        # 건강체 4번 : 5년 이내 입원/수술/계속 7일↑ 치료/계속 30일↑ 투약
-        #              ※ '계속하여' = 동일 원인 치료 시작~완료일 연속 일수
-        # 건강체 5번 : 5년 이내 11대 질병 (암/백혈병/고혈압/협심증/심근경색/심장판막/
-        #              간경화/뇌졸중/당뇨/에이즈/직장항문)
-        #
-        # 간편 1번 : 3개월 이내 질병확정진단/의심소견/입원소견/수술소견/추가검사소견
-        # 간편 2번 : 10년 이내 입원/수술
-        # 간편 3번 : 5년 이내 6대 질병
-        # ══════════════════════════════════════════════════
+
+        # 원본 데이터를 텍스트로 변환
+        raw_text_lines = []
+        for _, row in df.iterrows():
+            if row_is_junk(row):
+                continue
+            ftype    = str(row.get("_ftype", ""))
+            date_str = get_val(row, ["진료시작일", "진료일", "조제일자", "처방일"])
+            code_raw = get_val(row, ["코드", "상병코드", "진단코드"])
+            code_str = normalize_code(code_raw)
+            name_str = get_val(row, ["상병명", "약품명", "진료내역", "행위명"])
+            hospital = get_val(row, ["병·의원", "기관명", "요양기관명"])
+            in_out   = get_val(row, ["입원외래구분", "입원", "외래", "구분"])
+            m_days   = get_val(row, ["투약일수"])
+            v_days   = get_val(row, ["내원일수"])
+
+            if not date_str and not name_str:
+                continue
+
+            line = f"[{ftype}] 날짜:{date_str} 코드:{code_str} 병명:{name_str[:20]} 병원:{hospital[:10]} 구분:{in_out} 투약일:{m_days} 내원일:{v_days}"
+            raw_text_lines.append(line)
+
+        raw_text = "\n".join(raw_text_lines[:600])  # 토큰 제한 대비
+
+        today_str = today.strftime('%Y-%m-%d')
+        d_3m  = (today - timedelta(days=90)).strftime('%Y-%m-%d')
+        d_1y  = (today - timedelta(days=365)).strftime('%Y-%m-%d')
+        d_5y  = (today - timedelta(days=1825)).strftime('%Y-%m-%d')
+        d_10y = (today - timedelta(days=3650)).strftime('%Y-%m-%d')
+
+        if product_type == "건강체/표준체 (일반심사)":
+            criteria_text = f"""
+[건강체/표준체 알릴의무 4문항] (기준일: {today_str})
+Q1. 최근 3개월({d_3m} 이후): 질병확정진단 / 질병의심소견 / 입원필요소견 / 수술필요소견 / 추가검사필요소견 / 치료 / 투약
+Q2. 최근 3개월({d_3m} 이후): 혈압강하제·신경안정제·수면제·각성제·진통제·마약류 상시 복용
+Q3. 최근 1년({d_1y} 이후): 진찰 후 이상소견으로 추가검사(재검사) 받은 사실
+Q4. 최근 5년({d_5y} 이후): 입원 / 수술(제왕절개 포함) / 계속하여 7일 이상 치료 / 계속하여 30일 이상 투약
+
+[중요 판단 기준]
+- 치과 치료(발치, 임플란트, 스케일링 등)는 Q4 수술에 해당 가능
+- 내시경+용종절제는 수술에 해당
+- 한방 치료도 동일 기준 적용
+- 약국 단순 조제($ 해당없음)는 제외
+- COVID 검사(AZ115), 예방접종(Z코드)는 제외
+- 계속하여 30일 이상 투약 = 동일 질환으로 30일분 이상 처방 (당뇨·고혈압 만성질환 해당)
+"""
+        else:
+            criteria_text = f"""
+[간편심사(유병자 3-5-5) 알릴의무 3문항] (기준일: {today_str})
+Q1. 최근 3개월({d_3m} 이후): 질병확정진단 / 질병의심소견 / 추가검사필요소견 / 입원 / 수술
+Q2. 최근 10년({d_10y} 이후): 입원 또는 수술(제왕절개 포함)
+Q3. 최근 5년({d_5y} 이후) 6대질병: ①암(C코드) ②협심증(I20) ③심근경색(I21-I22) ④심장판막증(I05-I09,I34-I39) ⑤간경화(K74) ⑥뇌졸중(I60-I64)
+
+[간편심사 면제]
+- 7일 미만 단순 통원: 고지 불필요
+- 30일 미만 단순 투약: 고지 불필요
+- 6대질병 아닌 단순 통원/투약: 면제
+"""
+
+        system_prompt = f"""당신은 보험 언더라이팅 전문 AI입니다.
+건강보험심사평가원(건강e음) 진료 데이터를 분석하여 보험 가입 시 알릴의무(고지의무) 해당 항목을 정확히 판단합니다.
+
+[코드 전처리 규칙]
+- 코드 앞 A(양방)/B(한방) 접두사는 실제 KCD 코드 아님 (예: AK635 → K63.5 결장용종)
+- 숫자 1로 시작하는 코드 → I로 교정 (OCR 오류)
+- $ 또는 해당없음 행 → 완전 제외
+
+{criteria_text}
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 순수 JSON:
+{{
+  "flagged_items": [
+    {{
+      "date": "YYYY-MM-DD",
+      "code": "정규화된 KCD코드",
+      "disease": "질병/수술명 (한글로 명확하게)",
+      "hospital": "병원명",
+      "duty_question": "Q1 또는 Q2 또는 Q3 또는 Q4",
+      "reason": "고지 판단 사유 (구체적으로, 예: 용종절제술 = 수술 해당)",
+      "is_inpatient": true또는false,
+      "inpatient_days": 숫자또는0,
+      "is_surgery": true또는false,
+      "surgery_name": "수술명 또는 null",
+      "med_days": 투약일수숫자또는0,
+      "weight": "critical 또는 high 또는 mid 또는 low"
+    }}
+  ],
+  "exempt_items": [
+    {{
+      "date": "YYYY-MM-DD",
+      "disease": "질병명",
+      "reason": "면제 사유"
+    }}
+  ],
+  "q1_hit": true또는false, "q1_reason": "사유",
+  "q2_hit": true또는false, "q2_reason": "해당 약물명 또는 없음",
+  "q3_hit": true또는false, "q3_reason": "사유",
+  "q4_hit": true또는false, "q4_reason": "입원/수술/7일이상/30일이상 중 해당 사유",
+  "simple_q1_hit": true또는false,
+  "simple_q2_hit": true또는false, "simple_q2_reason": "입원 또는 수술 상세",
+  "simple_q3_hit": true또는false, "simple_q3_disease": "6대질병명 또는 null",
+  "total_flagged": 숫자,
+  "health_verdict": "가능 또는 조건부 또는 불가",
+  "health_reason": "판단 이유 한 줄",
+  "simple_verdict": "가능 또는 조건부 또는 불가",
+  "simple_reason": "판단 이유 한 줄",
+  "recommend": "건강체 진행 또는 간편심사 전환 권장 또는 인수 불가 가능성",
+  "summary": "설계사를 위한 핵심 요약 2줄"
+}}"""
+
+        # Claude API 호출
+        try:
+            import os
+            api_client = anthropic.Anthropic(
+                api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+            )
+            message = api_client.messages.create(
+                model="claude-opus-4-5",
+                max_tokens=3000,
+                system=system_prompt,
+                messages=[{
+                    "role": "user",
+                    "content": f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
+                }]
+            )
+            raw_response = message.content[0].text
+            clean_response = raw_response.replace("```json", "").replace("```", "").strip()
+            ai_result = json.loads(clean_response)
+        except json.JSONDecodeError as e:
+            st.error(f"AI 응답 파싱 오류: {e}\n응답 원문: {raw_response[:300]}")
+            st.stop()
+        except Exception as e:
+            st.error(f"Claude API 호출 오류: {e}")
+            st.stop()
+
+        # AI 결과를 기존 summary_reports 형식으로 변환
         summary_reports = defaultdict(list)
         flagged_codes   = set()
 
-        # 혈압약 키워드 (건강체 2번)
-        bp_drug_keywords = ["혈압", "암로디핀", "로사르탄", "발사르탄", "텔미사르탄",
-                            "올메사르탄", "칸데사르탄", "이르베사르탄", "아테놀롤",
-                            "비소프롤롤", "메토프롤롤", "카르베딜롤", "인다파미드",
-                            "히드로클로로티아지드", "푸로세미드", "스피로노락톤",
-                            "신경안정제", "수면제", "진통제", "마약"]
-
-        for key, s in disease_stats.items():
-            if s["latest_date"] == "2000-01-01":
-                continue
-
-            # ── 투약일수 결정: 처방조제 우선, 없으면 기본진료 ──
-            med_dates = s["med_dates_pharma"] if s["has_pharma"] and s["med_dates_pharma"] \
-                        else s["med_dates_basic"]
-
-            # ── 통원일수: visit_dates(set) 크기 = 중복 제거된 외래 방문 횟수 ──
-            visit_count    = len(s["visit_dates"])
-            inpatient_count = len(s["inpatient_dates"])  # 입원 일수 (날짜 기준)
-            total_visit    = visit_count + inpatient_count
-
-            # ── 투약: '계속하여 30일' = 단일 처방 중 최대 투약일수 ──
-            #  (심평원 데이터는 1회 처방 = 1행 → 행의 투약일수가 연속 처방 기간)
-            max_single_med  = max(med_dates.values()) if med_dates else 0
-            total_med_days  = sum(med_dates.values())   # 전체 합산 (참고용)
-
-            latest_d   = datetime.strptime(s["latest_date"], "%Y-%m-%d")
-            first_d    = datetime.strptime(s["first_date"],  "%Y-%m-%d")
-
-            # 투약 종료 추정: 최종 방문일 + 그 날 투약일수
-            latest_med  = med_dates.get(s["latest_date"], 0)
-            treat_end   = latest_d + timedelta(days=latest_med)
-
-            days_from_treat_end = (today - treat_end).days
-            days_from_latest    = (today - latest_d).days
-            days_from_first     = (today - first_d).days
-
-            reasons = []
-
-            # ═══════════════════════════════
-            # 건강체/표준체
-            # ═══════════════════════════════
+        for item in ai_result.get("flagged_items", []):
+            q = item.get("duty_question", "Q1")
             if product_type == "건강체/표준체 (일반심사)":
-
-                # [1번] 3개월 이내 의료행위 (투약 종료 기준)
-                if days_from_treat_end <= 90:
-                    reasons.append((
-                        "[1번 질문] 3개월 이내 의료행위",
-                        "투약 종료 추정일 {} 기준 90일 미경과 (진찰/치료/투약 포함)".format(
-                            treat_end.strftime('%Y-%m-%d'))
-                    ))
-
-                # [2번] 3개월 이내 혈압강하제·신경안정제 등 상시 복용
-                if days_from_latest <= 90:
-                    drug_match = [d for d in s["drug_names_in_90"]
-                                  if any(k in d for k in bp_drug_keywords)]
-                    if drug_match:
-                        reasons.append((
-                            "[2번 질문] 3개월 이내 혈압강하제 등 상시 복용",
-                            "해당 약품 발견: {}".format(", ".join(drug_match[:2])[:50])
-                        ))
-
-                # [4번] 5년 이내 입원/수술/계속 7일 이상 치료/계속 30일 이상 투약
-                within_5y = days_from_treat_end <= 1825
-                if within_5y:
-                    if inpatient_count > 0:
-                        d_range = ""
-                        if s["inpatient_dates"]:
-                            sorted_d = sorted(s["inpatient_dates"])
-                            d_range = " ({} ~ {})".format(sorted_d[0], sorted_d[-1])
-                        reasons.append((
-                            "[4번 질문] 5년 이내 입원",
-                            "입원 {}일{}".format(inpatient_count, d_range)
-                        ))
-                    if s["surgeries"]:
-                        surg_sample = list(s["surgeries"])[:2]
-                        reasons.append((
-                            "[4번 질문] 5년 이내 수술",
-                            "수술/시술 이력: {}".format(", ".join(surg_sample)[:50])
-                        ))
-                    # '계속하여 7일 이상 치료' = 통원 횟수 기준 (방문일 수)
-                    if total_visit >= 7:
-                        reasons.append((
-                            "[4번 질문] 5년 이내 계속하여 7일 이상 치료",
-                            "누적 진료일수 {}일 (통원 {}회 + 입원 {}일)".format(
-                                total_visit, visit_count, inpatient_count)
-                        ))
-                    # '계속하여 30일 이상 투약' = 단일 처방 최대값으로 판단
-                    if max_single_med >= 30:
-                        reasons.append((
-                            "[4번 질문] 5년 이내 계속하여 30일 이상 투약",
-                            "단일 처방 최대 {}일 투약 (전체 합계 {}일)".format(
-                                max_single_med, total_med_days)
-                        ))
-
-                # [5번] 5년 이내 11대 질병
-                if within_5y:
-                    is_11 = (any(key.startswith(c) for c in disease_12_list) or
-                             any(n in s["name"] for n in disease_12_names))
-                    if is_11:
-                        reasons.append((
-                            "[5번 질문] 5년 이내 11대 질병",
-                            "11대 질환 코드/병명 매칭 ({} / {})".format(key, s['name'][:20])
-                        ))
-
-            # ═══════════════════════════════
-            # 간편심사
-            # ═══════════════════════════════
+                q_map = {
+                    "Q1": "[1번 질문] 3개월 이내 의료행위",
+                    "Q2": "[2번 질문] 3개월 이내 혈압강하제 등 상시 복용",
+                    "Q3": "[3번 질문] 1년 이내 추가검사(재검사)",
+                    "Q4": "[4번 질문] 5년 이내 입원/수술/7일이상치료/30일이상투약",
+                }
             else:
-                # [간편 1번] 3개월 이내 질병확정진단·의심소견·입원/수술/추가검사 소견
-                if days_from_latest <= 90:
-                    subs = []
-                    if days_from_first <= 90:
-                        subs.append("질병 확정진단")
-                    if inpatient_count > 0:
-                        subs.append("입원 소견")
-                    if s["surgeries"]:
-                        subs.append("수술 소견")
-                    if s["tests_found"]:
-                        subs.append("추가검사 소견")
-                    if subs:
-                        reasons.append((
-                            "[간편 1번] 3개월 이내 진단/소견",
-                            "해당 항목: {}".format(", ".join(subs))
-                        ))
+                q_map = {
+                    "Q1": "[간편 1번] 3개월 이내 진단/소견",
+                    "Q2": "[간편 2번] 10년 이내 입원/수술",
+                    "Q3": "[간편 3번] 5년 이내 6대 중증 질환",
+                }
+            q_title = q_map.get(q, f"[{q}]")
 
-                # 실무 룰: 신규 진단 + 치료 중
-                if days_from_first <= 90 and days_from_treat_end <= 0:
-                    reasons.append((
-                        "[실무 룰] 3개월 이내 신규 진단 & 치료 중",
-                        "최초진단 {} / 가입 가능일: {} 이후".format(
-                            s['first_date'], treat_end.strftime('%Y-%m-%d'))
-                    ))
-                # 실무 룰: 만성질환 약 변경/추가
-                elif days_from_first > 90 and days_from_latest <= 90:
-                    new_drugs = s["drug_names_in_90"] - s["drug_names_before_90"]
-                    if new_drugs:
-                        reasons.append((
-                            "[실무 룰] 3개월 이내 약 변경/추가 의심",
-                            "신규 약품 발견: {}".format(", ".join(list(new_drugs)[:2])[:50])
-                        ))
+            code_key = item.get("code", item.get("disease", "unknown"))
+            flagged_codes.add(code_key)
 
-                # [간편 2번] 10년 이내 입원/수술
-                within_10y = days_from_treat_end <= 3650
-                if within_10y:
-                    if inpatient_count > 0:
-                        d_range = ""
-                        if s["inpatient_dates"]:
-                            sorted_d = sorted(s["inpatient_dates"])
-                            d_range = " ({} ~ {})".format(sorted_d[0], sorted_d[-1])
-                        reasons.append((
-                            "[간편 2번] 10년 이내 입원",
-                            "입원 {}일{}".format(inpatient_count, d_range)
-                        ))
-                    if s["surgeries"]:
-                        surg_sample = list(s["surgeries"])[:2]
-                        reasons.append((
-                            "[간편 2번] 10년 이내 수술",
-                            "수술/시술: {}".format(", ".join(surg_sample)[:50])
-                        ))
+            summary_reports[q_title].append({
+                "first_date":       item.get("date", ""),
+                "latest_date":      item.get("date", ""),
+                "treatment_end":    item.get("date", ""),
+                "code":             item.get("code", "-"),
+                "name":             item.get("disease", ""),
+                "visit":            1,
+                "visit_count":      1,
+                "max_single_med":   item.get("med_days", 0),
+                "total_med":        item.get("med_days", 0),
+                "inpatient":        item.get("inpatient_days", 0),
+                "inpatient_dates":  [item.get("date", "")] if item.get("is_inpatient") else [],
+                "surgeries":        {item.get("surgery_name")} if item.get("is_surgery") and item.get("surgery_name") else set(),
+                "surgery_dates":    [item.get("date", "")] if item.get("is_surgery") else [],
+                "hospitals":        [item.get("hospital", "")],
+                "detail":           item.get("reason", ""),
+            })
 
-                # [간편 3번] 5년 이내 6대 질병
-                within_5y = days_from_treat_end <= 1825
-                if within_5y:
-                    is_6 = (any(key.startswith(c) for c in disease_6_list) or
-                            any(n in s["name"] for n in disease_6_names))
-                    if is_6:
-                        reasons.append((
-                            "[간편 3번] 5년 이내 6대 중증 질환",
-                            "6대 질환 코드/병명 매칭 ({} / {})".format(key, s['name'][:20])
-                        ))
-
-            if reasons:
-                flagged_codes.add(key)
-                disp_code = format_code(key)
-                for q_title, detail in reasons:
-                    summary_reports[q_title].append({
-                        "first_date":       s["first_date"],
-                        "latest_date":      s["latest_date"],
-                        "treatment_end":    treat_end.strftime("%Y-%m-%d"),
-                        "code":             disp_code,
-                        "name":             s["name"],
-                        "visit":            total_visit,
-                        "visit_count":      visit_count,
-                        "max_single_med":   max_single_med,
-                        "total_med":        total_med_days,
-                        "inpatient":        inpatient_count,
-                        "inpatient_dates":  sorted(s["inpatient_dates"]),
-                        "surgeries":        s["surgeries"],
-                        "surgery_dates":    sorted(s["surgery_dates"]),
-                        "hospitals":        list(s["hospitals"]),
-                        "detail":           detail,
-                    })
+        # AI 판단 결과 저장 (카카오 메시지용)
+        st.session_state["ai_result"] = ai_result
 
 
     # ==========================================
@@ -1682,6 +1658,12 @@ elif menu == "disclosure":
         # ── 카카오톡 메시지 생성 ──
         kakao_msg = f"📋 [ {product_type} 심사 요청 ]\n"
         kakao_msg += f"■ 기준일(청약예정일): {today.strftime('%Y-%m-%d')}\n\n"
+
+        # AI 판단 요약 추가
+        ai_res = st.session_state.get("ai_result", {})
+        if ai_res:
+            kakao_msg += f"■ AI 판단: {ai_res.get('health_verdict','?')} ({ai_res.get('health_reason','')})\n"
+            kakao_msg += f"■ 권장: {ai_res.get('recommend','')}\n\n"
 
         if not summary_reports:
             kakao_msg += "✅ AI 분석 결과, 고지 대상 질환이 없습니다. (표준체 진행 가능)\n"

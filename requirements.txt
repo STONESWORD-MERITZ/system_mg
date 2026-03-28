@@ -2,3 +2,4 @@ streamlit
 pdfplumber
 pandas
 reportlab
+anthropic>=0.24.0
