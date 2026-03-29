@@ -5,7 +5,8 @@ import re
 import io
 from datetime import datetime, timedelta
 from collections import defaultdict
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import os
 
@@ -1373,19 +1374,17 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
 
         # API 호출 (실패 시 1회 재시도)
         _gemini_key = st.secrets.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        genai.configure(api_key=_gemini_key)
-        api_client = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=system_prompt,
-        )
+        api_client = genai.Client(api_key=_gemini_key)
 
         ai_result = None
         last_error = None
 
         for attempt in range(2):
             try:
-                message = api_client.generate_content(
-                    f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
+                message = api_client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}",
+                    config=types.GenerateContentConfig(system_instruction=system_prompt),
                 )
                 raw_response = message.text if message.text else ""
                 if not raw_response.strip():
