@@ -1,6 +1,6 @@
-streamlit
-pdfplumber
-pandas
-reportlab
-google-genai
-python-dotenv
+streamlit>=1.32.0
+pdfplumber>=0.10.0
+pandas>=2.0.0
+reportlab>=4.0.0
+google-genai>=1.0.0
+python-dotenv>=1.0.0
