@@ -5,7 +5,7 @@ import re
 import io
 from datetime import datetime, timedelta
 from collections import defaultdict
-import anthropic
+import google.generativeai as genai
 import json
 import os
 
@@ -1369,8 +1369,11 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
             raise ValueError(f"JSON 추출 실패. 원문 앞 200자: {text[:200]}")
 
         # API 호출 (실패 시 1회 재시도)
-        api_client = anthropic.Anthropic(
-            api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        _gemini_key = st.secrets.get("GOOGLE_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        genai.configure(api_key=_gemini_key)
+        api_client = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=system_prompt,
         )
 
         ai_result = None
@@ -1378,14 +1381,10 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
 
         for attempt in range(2):
             try:
-                message = api_client.messages.create(
-                    model="claude-sonnet-4-5", max_tokens=4000, system=system_prompt,
-                    messages=[{
-                        "role": "user",
-                        "content": f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
-                    }]
+                message = api_client.generate_content(
+                    f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
                 )
-                raw_response = message.content[0].text if message.content else ""
+                raw_response = message.text if message.text else ""
                 if not raw_response.strip():
                     raise ValueError("AI 응답이 비어있습니다.")
                 ai_result = extract_json(raw_response)
@@ -1402,7 +1401,7 @@ Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증�
                 st.error(f"AI 응답 파싱 오류: {e}")
                 st.stop()
             except Exception as e:
-                st.error(f"Claude API 호출 오류: {e}")
+                st.error(f"Gemini API 호출 오류: {e}")
                 st.stop()
 
         if ai_result is None:
