@@ -2,6 +2,7 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import re
+import io
 from datetime import datetime, timedelta
 from collections import defaultdict
 import anthropic
@@ -15,7 +16,12 @@ st.set_page_config(
     page_title="AdvisorHub | 보험설계사 전용 플랫폼",
     layout="wide",
     page_icon="🛡️",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "AdvisorHub — 보험설계사 전용 AI 플랫폼"
+    }
 )
 
 if "menu" not in st.session_state:
@@ -30,297 +36,327 @@ st.markdown("""
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* ── 전체 배경 ── */
 html, body, .stApp {
-    background: #f4f6fb !important;
+    background: #f5f6f8 !important;
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif !important;
-    color: #1a1a2e !important;
+    color: #1f2937 !important;
 }
 
-/* ── 사이드바 ── */
-[data-testid="stSidebar"] {
+/* ── Streamlit 기본 UI 제거 ── */
+[data-testid="stHeader"],
+[data-testid="stDecoration"],
+[data-testid="stStatusWidget"],
+[data-testid="stSidebarHeader"],
+[data-testid="collapsedControl"],
+div[data-testid="stToolbar"],
+#MainMenu, footer { display: none !important; visibility: hidden !important; }
+
+/* ── 메인 여백 ── */
+.main .block-container {
+    padding: 0 1.5rem 2rem 1.5rem !important;
+    max-width: 100% !important;
+}
+[data-testid="stMainBlockContainer"] { padding-top: 0 !important; }
+
+/* ══════════════════════════════
+   사이드바
+══════════════════════════════ */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"][aria-expanded="false"] {
+    min-width: 280px !important;
+    width: 280px !important;
+    left: 0 !important;
+    transform: translateX(0) !important;
+    margin-left: 0 !important;
+    visibility: visible !important;
     background: #ffffff !important;
-    border-right: 1px solid #e8ecf4 !important;
-    width: 240px !important;
-    padding-top: 0 !important;
+    border-right: 1px solid #e5e7eb !important;
 }
-[data-testid="stSidebar"] > div:first-child { padding: 0 !important; }
-[data-testid="stSidebar"] * { color: #4a5568 !important; }
-[data-testid="stSidebar"] hr { border-color: #e8ecf4 !important; margin: 8px 16px !important; }
+[data-testid="stSidebar"] > div { padding-top: 0 !important; margin-top: 0 !important; }
+[data-testid="stSidebarContent"] { padding-top: 0 !important; }
+[data-testid="stSidebar"] * { color: #374151 !important; }
 
-/* 사이드바 라디오/익스팬더 숨기기 */
-[data-testid="stSidebar"] [data-testid="stExpander"] details { border: none !important; background: transparent !important; }
-[data-testid="stSidebar"] [data-testid="stExpander"] summary { background: transparent !important; color: #6b7280 !important; font-size: 0.72rem !important; font-weight: 600 !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; padding: 0 16px 6px !important; }
-[data-testid="stSidebar"] [data-testid="stExpander"] summary:hover { background: transparent !important; }
-[data-testid="stSidebar"] .stRadio label { font-size: 0.82rem !important; color: #4a5568 !important; }
-[data-testid="stSidebar"] [data-testid="stDateInput"] input {
-    background: #f4f6fb !important;
-    color: #1a1a2e !important;
-    border: 1px solid #e8ecf4 !important;
-    border-radius: 8px !important;
-    font-size: 0.82rem !important;
+/* 로고 */
+.sb-logo {
+    padding: 22px 20px 14px;
+    border-bottom: 1px solid #f3f4f6;
 }
-
-/* 헤더 제거 */
-[data-testid="stHeader"] { display: none !important; }
-#MainMenu, footer { visibility: hidden; }
-
-/* 파일 업로더 */
-[data-testid="stFileUploader"] section {
-    background: #ffffff !important;
-    border: 2px dashed #c7d2fe !important;
-    border-radius: 14px !important;
-    transition: all 0.2s !important;
-}
-[data-testid="stFileUploader"] section:hover { border-color: #6366f1 !important; background: #f5f3ff !important; }
-[data-testid="stFileUploader"] *, [data-testid="stUploadedFile"] * { color: #1a1a2e !important; }
-[data-testid="stFileUploader"] button {
-    background: #6366f1 !important;
-    border: none !important;
-    border-radius: 8px !important;
-}
-
-/* 탭 */
-[data-testid="stTabs"] [role="tablist"] {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 4px;
-    border: 1px solid #e8ecf4;
-    gap: 2px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-[data-testid="stTabs"] button[role="tab"] {
-    border-radius: 10px !important;
-    font-weight: 600 !important;
-    font-size: 0.83rem !important;
-    color: #6b7280 !important;
-    padding: 7px 16px !important;
-}
-[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-    background: #6366f1 !important;
-    color: #ffffff !important;
-    box-shadow: 0 2px 8px rgba(99,102,241,0.25) !important;
-}
-
-div[data-testid="stAlert"] { border-radius: 12px !important; }
-.dataframe, .dataframe * { font-size: 0.82rem !important; color: #1a1a2e !important; }
-
-/* ── 사이드바 로고 ── */
-.sb-brand {
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid #e8ecf4;
-    margin-bottom: 8px;
-}
-.sb-brand-name {
-    font-size: 1.05rem; font-weight: 800;
-    color: #6366f1 !important;
+.sb-logo-name {
+    font-size: 1rem; font-weight: 800;
+    color: #111827 !important;
     letter-spacing: -.02em; line-height: 1.2;
 }
-.sb-brand-sub { font-size: 0.72rem; color: #9ca3af !important; margin-top: 2px; font-weight: 500; }
-
-/* ── 사이드바 섹션 라벨 ── */
-.sb-section {
-    font-size: 0.68rem; font-weight: 700; letter-spacing: .1em;
-    text-transform: uppercase; color: #9ca3af !important;
-    padding: 12px 20px 4px; margin-top: 4px;
+.sb-logo-sub {
+    font-size: 0.68rem; color: #9ca3af !important;
+    margin-top: 3px; font-weight: 500;
 }
 
-/* ── 네비 버튼 (Streamlit 버튼 오버라이드) ── */
+/* 메뉴 그룹 라벨 */
+.sb-group {
+    font-size: 0.65rem; font-weight: 700;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: #9ca3af !important;
+    padding: 16px 20px 6px;
+}
+
+/* 네비 버튼 */
 [data-testid="stSidebar"] .stButton button {
     background: transparent !important;
     border: none !important;
-    border-radius: 10px !important;
-    color: #4a5568 !important;
-    font-size: 0.85rem !important;
+    border-radius: 8px !important;
+    color: #6b7280 !important;
+    font-size: 0.84rem !important;
     font-weight: 500 !important;
     text-align: left !important;
-    padding: 9px 14px !important;
+    padding: 8px 16px !important;
     width: 100% !important;
-    transition: all 0.15s !important;
+    transition: all 0.12s !important;
     box-shadow: none !important;
     margin: 1px 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+[data-testid="stSidebar"] .stButton button p {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 [data-testid="stSidebar"] .stButton button:hover {
-    background: #f5f3ff !important;
-    color: #6366f1 !important;
+    background: #f9fafb !important;
+    color: #111827 !important;
 }
 [data-testid="stSidebar"] .stButton button[kind="primary"] {
-    background: #ede9fe !important;
-    color: #6366f1 !important;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
     font-weight: 700 !important;
-    border-left: 3px solid #6366f1 !important;
-    border-radius: 0 10px 10px 0 !important;
+    border-left: 3px solid #3b82f6 !important;
+    border-radius: 0 8px 8px 0 !important;
+    padding-left: 16px !important;
 }
 
-/* ── 페이지 헤더 ── */
+/* ══════════════════════════════
+   페이지 헤더
+══════════════════════════════ */
 .page-header {
-    background: #ffffff;
-    border: 1px solid #e8ecf4;
-    border-radius: 16px;
-    padding: 20px 24px;
-    margin-bottom: 18px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    padding: 20px 0 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
 }
 .page-eyebrow {
-    font-size: 0.68rem; font-weight: 700; letter-spacing: .12em;
-    text-transform: uppercase; color: #6366f1 !important; margin-bottom: 4px;
+    font-size: 0.7rem; font-weight: 600;
+    color: #3b82f6 !important; margin-bottom: 4px;
+    letter-spacing: .04em;
 }
 .page-title {
-    font-size: 1.45rem; font-weight: 800;
-    color: #1a1a2e !important; letter-spacing: -.03em; line-height: 1.2;
+    font-size: 1.3rem; font-weight: 800;
+    color: #111827 !important; letter-spacing: -.03em; line-height: 1.2;
 }
-.page-desc { font-size: 0.82rem; color: #6b7280 !important; margin-top: 5px; line-height: 1.6; }
+.page-desc { font-size: 0.78rem; color: #6b7280 !important; margin-top: 4px; line-height: 1.5; }
 
-/* ── 요약 수치 카드 ── */
-.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
-.stat-card {
+/* ══════════════════════════════
+   카드 공통
+══════════════════════════════ */
+.cl-card {
     background: #ffffff;
-    border: 1px solid #e8ecf4;
-    border-radius: 14px;
-    padding: 16px 18px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    transition: all 0.2s;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.stat-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-.stat-card.ok   { border-color: #a7f3d0; background: linear-gradient(135deg, #f0fdf4, #fff); }
-.stat-card.warn { border-color: #fde68a; background: linear-gradient(135deg, #fffbeb, #fff); }
-.stat-card.danger { border-color: #fecaca; background: linear-gradient(135deg, #fef2f2, #fff); }
-.sc-icon { font-size: 1.2rem; margin-bottom: 8px; }
-.sc-label { font-size: 0.72rem; color: #9ca3af !important; font-weight: 600; margin-bottom: 4px; }
-.sc-value { font-family: 'DM Mono', monospace; font-size: 2.2rem; font-weight: 600; color: #1a1a2e !important; line-height: 1; }
-.stat-card.warn .sc-value, .stat-card.danger .sc-value { color: #dc2626 !important; }
-.stat-card.ok .sc-value { color: #16a34a !important; }
-.sc-sub { font-size: 0.72rem; color: #9ca3af !important; margin-top: 5px; font-weight: 500; }
 
-/* ── AI 판정 배너 ── */
-.verdict-banner {
-    border-radius: 14px; padding: 16px 20px; margin-bottom: 18px;
-    display: flex; align-items: flex-start; gap: 14px;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+/* ══════════════════════════════
+   요약 수치 카드
+══════════════════════════════ */
+.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat-card {
+    background: #ffffff; border: 1px solid #e5e7eb;
+    border-radius: 12px; padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
-.verdict-ok   { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 1px solid #86efac; }
-.verdict-warn { background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fcd34d; }
-.verdict-bad  { background: linear-gradient(135deg, #fef2f2, #fee2e2); border: 1px solid #fca5a5; }
-.verdict-icon { font-size: 1.6rem; flex-shrink: 0; margin-top: 2px; }
-.verdict-content {}
-.verdict-label { font-size: 0.7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3px; }
+.stat-card.ok     { border-color: #bbf7d0; background: #f0fdf4; }
+.stat-card.warn   { border-color: #fde68a; background: #fffbeb; }
+.stat-card.danger { border-color: #fecaca; background: #fef2f2; }
+.sc-label { font-size: 0.7rem; color: #9ca3af !important; font-weight: 600; margin-bottom: 6px; }
+.sc-value { font-family: 'DM Mono', monospace; font-size: 2rem; font-weight: 700; color: #111827 !important; line-height: 1; }
+.stat-card.ok .sc-value { color: #16a34a !important; }
+.stat-card.warn .sc-value, .stat-card.danger .sc-value { color: #dc2626 !important; }
+.sc-sub { font-size: 0.7rem; color: #9ca3af !important; margin-top: 4px; }
+
+/* ══════════════════════════════
+   AI 판정 배너
+══════════════════════════════ */
+.verdict-banner {
+    border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+    display: flex; align-items: flex-start; gap: 12px;
+    border: 1px solid #e5e7eb;
+}
+.verdict-ok   { background: #f0fdf4; border-color: #86efac; }
+.verdict-warn { background: #fffbeb; border-color: #fcd34d; }
+.verdict-bad  { background: #fef2f2; border-color: #fca5a5; }
+.verdict-icon { font-size: 1.5rem; flex-shrink: 0; margin-top: 1px; }
+.verdict-label { font-size: 0.68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
 .verdict-ok   .verdict-label { color: #16a34a !important; }
 .verdict-warn .verdict-label { color: #d97706 !important; }
 .verdict-bad  .verdict-label { color: #dc2626 !important; }
-.verdict-title { font-size: 1rem; font-weight: 800; margin-bottom: 4px; }
+.verdict-title { font-size: 0.95rem; font-weight: 700; margin-bottom: 3px; }
 .verdict-ok   .verdict-title { color: #15803d !important; }
 .verdict-warn .verdict-title { color: #92400e !important; }
 .verdict-bad  .verdict-title { color: #991b1b !important; }
-.verdict-desc { font-size: 0.8rem; line-height: 1.6; }
+.verdict-desc { font-size: 0.78rem; line-height: 1.6; }
 .verdict-ok   .verdict-desc { color: #166534 !important; }
 .verdict-warn .verdict-desc { color: #92400e !important; }
 .verdict-bad  .verdict-desc { color: #991b1b !important; }
 
-/* ── 전환 배너 ── */
+/* ══════════════════════════════
+   전환 배너
+══════════════════════════════ */
 .switch-banner {
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1px solid #fcd34d; border-radius: 12px;
-    padding: 12px 16px; font-size: 0.82rem;
-    color: #92400e !important; font-weight: 600; margin-bottom: 16px;
-    display: flex; align-items: center; gap: 10px;
+    background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px;
+    padding: 10px 14px; font-size: 0.8rem;
+    color: #92400e !important; font-weight: 600; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
 }
 
-/* ── 고지 카드 ── */
+/* ══════════════════════════════
+   고지 카드
+══════════════════════════════ */
 .duty-card {
-    background: #ffffff; border: 1px solid #e8ecf4;
-    border-radius: 14px; margin-bottom: 12px;
-    overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    background: #ffffff; border: 1px solid #e5e7eb;
+    border-radius: 12px; margin-bottom: 10px;
+    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .duty-card-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 12px 16px; background: #f8f9ff;
-    border-bottom: 1px solid #e8ecf4;
+    padding: 11px 16px; background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
 }
 .duty-q-badge {
-    font-size: 0.7rem; font-weight: 800; background: #6366f1;
-    color: #fff !important; padding: 3px 10px; border-radius: 100px;
+    font-size: 0.68rem; font-weight: 700; background: #3b82f6;
+    color: #fff !important; padding: 2px 9px; border-radius: 100px;
 }
-.duty-q-title { font-size: 0.88rem; font-weight: 700; color: #1a1a2e !important; }
-.duty-item { padding: 13px 16px; border-bottom: 1px solid #f4f6fb; }
+.duty-q-title { font-size: 0.86rem; font-weight: 700; color: #111827 !important; }
+.duty-item { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; }
 .duty-item:last-child { border-bottom: none; }
-.duty-disease { font-size: 0.92rem; font-weight: 700; color: #1a1a2e !important; margin-bottom: 3px; }
-.duty-code { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: #9ca3af !important; font-weight: 400; margin-left: 7px; background: #f4f6fb; padding: 1px 6px; border-radius: 4px; }
-.duty-meta { font-size: 0.78rem; color: #9ca3af !important; margin: 4px 0; }
-.duty-reason { font-size: 0.8rem; color: #6366f1 !important; margin: 5px 0; font-weight: 600; padding: 5px 10px; background: #f5f3ff; border-radius: 8px; border-left: 3px solid #6366f1; }
-.duty-stats-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
-.stat-pill { font-size: 0.71rem; background: #f4f6fb; color: #6b7280 !important; padding: 3px 9px; border-radius: 100px; font-weight: 500; border: 1px solid #e8ecf4; }
+.duty-disease { font-size: 0.9rem; font-weight: 700; color: #111827 !important; margin-bottom: 2px; }
+.duty-code { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: #9ca3af !important; margin-left: 6px; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
+.duty-meta { font-size: 0.76rem; color: #9ca3af !important; margin: 3px 0; }
+.duty-reason { font-size: 0.78rem; color: #1d4ed8 !important; margin: 4px 0; font-weight: 600; padding: 4px 10px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #3b82f6; }
+.duty-stats-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+.stat-pill { font-size: 0.7rem; background: #f3f4f6; color: #6b7280 !important; padding: 2px 8px; border-radius: 100px; font-weight: 500; border: 1px solid #e5e7eb; }
 .stat-pill.red { background: #fef2f2; color: #dc2626 !important; border-color: #fecaca; }
-.stat-pill.purple { background: #f5f3ff; color: #6366f1 !important; border-color: #c4b5fd; }
+.stat-pill.blue { background: #eff6ff; color: #1d4ed8 !important; border-color: #bfdbfe; }
 
-/* ── 섹션 헤더 ── */
+/* ══════════════════════════════
+   섹션 헤더
+══════════════════════════════ */
 .section-head {
-    font-size: 0.8rem; font-weight: 700; color: #1a1a2e !important;
-    margin: 16px 0 10px; padding: 0 0 8px;
-    border-bottom: 1px solid #e8ecf4;
+    font-size: 0.78rem; font-weight: 700; color: #111827 !important;
+    margin: 14px 0 8px; padding: 0 0 8px;
+    border-bottom: 1px solid #e5e7eb;
     display: flex; align-items: center; gap: 6px;
 }
 
-/* ── 간편심사 그리드 ── */
-.easy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
-.easy-box { background: #ffffff; border: 1px solid #e8ecf4; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-.easy-box-head { padding: 11px 14px; background: #f8f9ff; font-size: 0.8rem; font-weight: 700; color: #1a1a2e !important; border-bottom: 1px solid #e8ecf4; line-height: 1.5; }
-.easy-item { padding: 9px 14px; font-size: 0.8rem; color: #1a1a2e !important; border-bottom: 1px solid #f4f6fb; }
+/* ══════════════════════════════
+   간편심사 그리드
+══════════════════════════════ */
+.easy-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.easy-box { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.easy-box-head { padding: 10px 14px; background: #f9fafb; font-size: 0.78rem; font-weight: 700; color: #111827 !important; border-bottom: 1px solid #e5e7eb; line-height: 1.5; }
+.easy-item { padding: 8px 14px; font-size: 0.78rem; color: #1f2937 !important; border-bottom: 1px solid #f3f4f6; }
 .easy-item:last-child { border-bottom: none; }
-.easy-code { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: #9ca3af !important; background: #f4f6fb; padding: 1px 5px; border-radius: 4px; margin-right: 4px; }
-.easy-empty { padding: 12px 14px; font-size: 0.8rem; color: #16a34a !important; font-weight: 600; }
+.easy-code { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: #9ca3af !important; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; margin-right: 4px; }
+.easy-empty { padding: 10px 14px; font-size: 0.78rem; color: #16a34a !important; font-weight: 600; }
 
-/* ── 빈 화면 ── */
+/* ══════════════════════════════
+   빈 화면
+══════════════════════════════ */
 .clean-card {
-    display: flex; align-items: center; gap: 14px;
-    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-    border: 1px solid #86efac; border-radius: 14px;
-    padding: 22px 20px; font-size: 0.92rem;
+    display: flex; align-items: center; gap: 12px;
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+    padding: 18px 20px; font-size: 0.88rem;
     font-weight: 700; color: #15803d !important;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 
-/* ── 카톡 복사 버튼 ── */
-.copy-wrap { margin-bottom: 12px; }
-
-/* ── 보장분석 ── */
-.ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
-.ba-panel { background: #ffffff; border: 1px solid #e8ecf4; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-.ba-head { padding: 12px 16px; font-size: 0.8rem; font-weight: 700; border-bottom: 1px solid #f4f6fb; }
-.ba-before .ba-head { background: linear-gradient(135deg,#fff8f0,#fff); color: #92400e !important; }
-.ba-after  .ba-head { background: linear-gradient(135deg,#f0fdf4,#fff); color: #166534 !important; }
-.cov-row { display: flex; align-items: center; padding: 9px 16px; border-bottom: 1px solid #f9fafb; gap: 10px; font-size: 0.81rem; }
+/* ══════════════════════════════
+   보장분석
+══════════════════════════════ */
+.ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.ba-panel { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.ba-head { padding: 11px 16px; font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid #f3f4f6; }
+.ba-before .ba-head { background: #fffbeb; color: #92400e !important; }
+.ba-after  .ba-head { background: #f0fdf4; color: #166534 !important; }
+.cov-row { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid #f9fafb; gap: 10px; font-size: 0.8rem; }
 .cov-row:last-child { border-bottom: none; }
-.cov-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.cov-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
 .cov-dot.up { background: #16a34a; }
 .cov-dot.dn { background: #dc2626; }
 .cov-dot.eq { background: #d1d5db; }
-.cov-nm { flex: 1; color: #4a5568 !important; }
-.cov-val { font-family: 'DM Mono', monospace; font-size: 0.79rem; color: #1a1a2e !important; }
+.cov-nm { flex: 1; color: #6b7280 !important; }
+.cov-val { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: #1f2937 !important; }
 .cov-val.up { color: #16a34a !important; font-weight: 700; }
 .cov-val.dn { color: #dc2626 !important; font-weight: 700; }
 
-/* ── 빈 업로드 안내 ── */
-.upload-empty {
-    text-align: center; padding: 48px 20px;
-    background: #ffffff; border: 1px solid #e8ecf4;
-    border-radius: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+/* ══════════════════════════════
+   파일 업로더
+══════════════════════════════ */
+[data-testid="stFileUploader"] section {
+    background: #ffffff !important;
+    border: 1px dashed #d1d5db !important;
+    border-radius: 12px !important;
+    transition: all 0.15s !important;
 }
-.upload-empty-icon { font-size: 3rem; margin-bottom: 12px; }
-.upload-empty-title { font-size: 0.95rem; font-weight: 700; color: #1a1a2e !important; margin-bottom: 5px; }
-.upload-empty-desc { font-size: 0.8rem; color: #9ca3af !important; line-height: 1.6; }
+[data-testid="stFileUploader"] section:hover { border-color: #3b82f6 !important; background: #eff6ff !important; }
+[data-testid="stFileUploader"] *, [data-testid="stUploadedFile"] * { color: #1f2937 !important; }
+[data-testid="stFileUploader"] button { background: #3b82f6 !important; border: none !important; border-radius: 8px !important; }
+[data-testid="stUploadedFileData"] { padding: 4px 0 !important; }
 
-/* ── 경고 배너 ── */
-.warn-banner {
-    background: linear-gradient(135deg, #fffbeb, #fef3c7);
-    border: 1px solid #fcd34d; border-radius: 12px;
-    padding: 10px 14px; font-size: 0.82rem;
-    color: #92400e !important; font-weight: 600;
-    margin-bottom: 14px;
+/* ══════════════════════════════
+   탭
+══════════════════════════════ */
+[data-testid="stTabs"] [role="tablist"] {
+    background: #ffffff; border-radius: 10px; padding: 3px;
+    border: 1px solid #e5e7eb; gap: 2px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
+[data-testid="stTabs"] button[role="tab"] {
+    border-radius: 8px !important; font-weight: 600 !important;
+    font-size: 0.82rem !important; color: #6b7280 !important; padding: 6px 16px !important;
+}
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+    background: #3b82f6 !important; color: #ffffff !important;
+    box-shadow: 0 1px 4px rgba(59,130,246,0.3) !important;
+}
+
+/* ══════════════════════════════
+   빈 업로드 안내
+══════════════════════════════ */
+.upload-empty {
+    text-align: center; padding: 56px 20px;
+    background: #ffffff; border: 1px solid #e5e7eb;
+    border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.upload-empty-icon { font-size: 2.8rem; margin-bottom: 12px; }
+.upload-empty-title { font-size: 0.92rem; font-weight: 700; color: #111827 !important; margin-bottom: 5px; }
+.upload-empty-desc { font-size: 0.78rem; color: #9ca3af !important; line-height: 1.6; }
+
+/* ══════════════════════════════
+   경고 배너
+══════════════════════════════ */
+.warn-banner {
+    background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px;
+    padding: 9px 14px; font-size: 0.8rem;
+    color: #92400e !important; font-weight: 600; margin-bottom: 12px;
+}
+
+div[data-testid="stAlert"] { border-radius: 10px !important; }
+.dataframe, .dataframe * { font-size: 0.8rem !important; color: #1f2937 !important; }
+.copy-wrap { margin-bottom: 10px; }
 
 @media (max-width: 768px) {
-    .ba-grid { grid-template-columns: 1fr; }
+    .ba-grid, .easy-grid { grid-template-columns: 1fr; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
-    .easy-grid { grid-template-columns: 1fr; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -331,17 +367,17 @@ div[data-testid="stAlert"] { border-radius: 12px !important; }
 # ==========================================
 with st.sidebar:
     st.markdown("""
-    <div class="sb-brand">
-        <div class="sb-brand-name">AdvisorHub</div>
-        <div class="sb-brand-sub">보험설계사 전용 AI 플랫폼</div>
+    <div class="sb-logo">
+        <div class="sb-logo-name">AdvisorHub</div>
+        <div class="sb-logo-sub">보험설계사 전용 AI 플랫폼</div>
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="sb-section">메뉴</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sb-group">메뉴</div>', unsafe_allow_html=True)
 
     menus = [
-        ("before_after", "🔄", "보장분석 비포&에프터"),
         ("disclosure",   "🔍", "알릴의무 필터"),
+        ("before_after", "🔄", "보장분석 비포&에프터"),
     ]
     for key, icon, label in menus:
         is_active = st.session_state.menu == key
@@ -351,16 +387,9 @@ with st.sidebar:
             st.session_state.menu = key
             st.rerun()
 
-    st.divider()
-
-    st.markdown('<div class="sb-section">분석 설정</div>', unsafe_allow_html=True)
-    product_type = st.radio(
-        "심사 기준",
-        ["건강체/표준체 (일반심사)", "간편심사 (유병자 3-5-5 기준)"],
-        index=0,
-        label_visibility="collapsed"
-    )
-    reference_date = st.date_input("기준일 (청약예정일)", datetime.today())
+# 사이드바 밖에서 기본값 선언 (before_after 페이지에서도 참조 가능하도록)
+product_type   = "건강체/표준체 (일반심사)"
+reference_date = datetime.today()
 
 
 # ==========================================
@@ -368,6 +397,8 @@ with st.sidebar:
 # ==========================================
 surg_keywords = ["수술","절제","시술","천자","주입","절개","적출","봉합","결찰","종양","폴립","결절"]
 test_keywords = ["검사","초음파","내시경","촬영","MRI","CT","조직","생검","판독","X-RAY","X-ray","엑스레이"]
+# 건강보험 요양급여내역 상병명에서 수술을 나타내는 키워드
+nhis_surg_keywords = ["매복","발치","치핵","치루","충수","탈장","담석","담낭","제왕절개","루봉합","루절제","치아이식"]
 
 
 def get_val(row, possible_keys):
@@ -395,6 +426,10 @@ def parse_date(date_str: str) -> str:
     m = re.search(r"(\d{4})-(\d{2})-(\d{2})", date_str)
     if m:
         return m.group()
+    # 건강보험 요양급여내역 형식: YYYY.MM.DD
+    m = re.search(r"(\d{4})\.(\d{2})\.(\d{2})", date_str)
+    if m:
+        return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
     m = re.search(r"(\d{8})", date_str)
     if m:
         d = m.group()
@@ -488,32 +523,102 @@ elif menu == "disclosure":
     <div class="page-header">
         <div class="page-eyebrow">🔍 AI 고지 분석</div>
         <div class="page-title">알릴의무 필터</div>
-        <div class="page-desc">심평원 진료 PDF를 업로드하면 AI가 고지 의무 항목을 자동으로 추출합니다.<br>기본진료 · 세부진료 · 처방조제 3종 모두 업로드 시 정확도가 높아집니다.</div>
+        <div class="page-desc">심평원 진료 PDF를 업로드하면 AI가 고지 의무 항목을 자동으로 추출합니다.</div>
     </div>
     """, unsafe_allow_html=True)
 
-    uploaded_files = st.file_uploader(
-        "심평원 PDF 업로드 (복수 선택 가능)",
-        type="pdf",
-        accept_multiple_files=True,
-        label_visibility="collapsed"
+    # ── 인라인 설정 (사이드바에서 이동) ──
+    col_s1, col_s2, col_s3 = st.columns([2, 2, 1])
+    with col_s1:
+        product_type = st.radio(
+            "심사 기준",
+            ["건강체/표준체 (일반심사)", "간편심사 (유병자 3-5-5 기준)"],
+            horizontal=True,
+            index=0
+        )
+    with col_s2:
+        reference_date = st.date_input("기준일 (청약예정일)", datetime.today())
+    with col_s3:
+        st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='margin-bottom:4px'></div>", unsafe_allow_html=True)
+
+    # ── 생년월일 입력 (업로드 전에 표시) ──
+    st.markdown("""
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;
+                padding:14px 16px;margin-bottom:6px;">
+        <div style="font-size:0.88rem;font-weight:700;color:#111827;margin-bottom:3px;">
+            고객 생년월일 <span style="font-size:0.78rem;font-weight:400;color:#9ca3af;">(선택)</span>
+        </div>
+        <div style="font-size:0.76rem;color:#6b7280;">
+            심평원 PDF에 비밀번호가 걸려있는 경우, 생년월일로 자동 해제합니다
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    birthdate_pw = st.text_input(
+        "생년월일", placeholder="예: 19900101 또는 900101",
+        key="pdf_birthdate", label_visibility="collapsed"
     )
 
-    if not uploaded_files:
+    # 업로더
+    has_stored = bool(st.session_state.get("stored_pdf_files"))
+    if has_stored:
+        file_count = len(st.session_state["stored_pdf_files"])
+        st.markdown(f"""
+        <div style="display:flex;align-items:center;gap:8px;
+                    background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;
+                    padding:7px 14px;margin-bottom:8px;">
+            <span style="font-size:0.78rem;font-weight:700;color:#1d4ed8;">✅ 파일 {file_count}개 업로드 완료</span>
+        </div>
+        """, unsafe_allow_html=True)
+    uploaded_files = st.file_uploader(
+        "심평원 자료 업로드",
+        type="pdf", accept_multiple_files=True,
+        label_visibility="collapsed" if has_stored else "visible"
+    )
+
+    # 새 파일 업로드 시 session_state에 bytes 저장
+    if uploaded_files:
+        st.session_state["stored_pdf_files"] = {
+            f.name: f.read() for f in uploaded_files
+        }
+
+    # 저장된 파일로 분석 대상 결정 (상품 변경 시에도 재업로드 불필요)
+    if st.session_state.get("stored_pdf_files"):
+        class _PDFFile:
+            def __init__(self, name, data):
+                self.name = name
+                self._data = data
+            def read(self):
+                return self._data
+        active_files = [
+            _PDFFile(name, data)
+            for name, data in st.session_state["stored_pdf_files"].items()
+        ]
+    else:
         st.markdown("""
         <div class="upload-empty">
             <div class="upload-empty-icon">📂</div>
             <div class="upload-empty-title">심평원 진료자료 PDF를 업로드하세요</div>
-            <div class="upload-empty-desc">건강e음(health.kr)에서 기본진료·세부진료·처방조제 3종을 발급받아<br>위 업로더에 올려주세요. 1개만 올려도 분석 가능합니다.</div>
+            <div class="upload-empty-desc">건강e음(health.kr)에서 기본진료·세부진료·처방조제 3종을 발급받아 올려주세요.<br>1개만 올려도 분석 가능합니다.</div>
         </div>
         """, unsafe_allow_html=True)
+        st.stop()
+    run_btn = st.button(
+        "🔍  AI 고지사항 추출", type="primary",
+        use_container_width=True, key="btn_analyze"
+    )
+
+    if not run_btn and not st.session_state.get("ai_result"):
         st.stop()
 
     # ==========================================
     # 분석 엔진
     # ==========================================
-    with st.spinner("📊 PDF 파싱 및 AI 분석 중..."):
+    if run_btn:
+      with st.spinner("📊 PDF 파싱 및 AI 분석 중..."):
         today = datetime(reference_date.year, reference_date.month, reference_date.day)
+        st.session_state["analysis_today"] = today
         all_records = []
         file_dataframes = {}
 
@@ -527,32 +632,126 @@ elif menu == "disclosure":
                 return "pharma"
             return "unknown"
 
-        for uploaded_file in uploaded_files:
+        def parse_nhis_text(text, fname):
+            """건강보험 요양급여내역 텍스트에서 진료 레코드 파싱"""
+            records = []
+            lines = [l.strip() for l in text.split('\n') if l.strip()]
+            # 날짜+기관 행: YYYY.MM.DD N 기관명 전화번호 금액
+            date_re  = re.compile(r'^(\d{4}\.\d{2}\.\d{2})\s+\d+\s+(.+?)\s+\d{2,4}-\d{3,4}-\d{4}')
+            # 방문유형 행: 외래|입원|약국 N [상병명 상병코드 금액]
+            visit_re = re.compile(r'^(외래|입원|약국)\s+(\d+)\s*(.*)')
+            seq_re   = re.compile(r'^\d+$')
+            cur_date, cur_hospital = None, None
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                m_d = date_re.match(line)
+                if m_d:
+                    cur_date     = m_d.group(1)
+                    cur_hospital = m_d.group(2).strip()
+                    i += 1
+                    continue
+                if seq_re.match(line) and cur_date:
+                    i += 1
+                    if i < len(lines):
+                        m_v = visit_re.match(lines[i])
+                        if m_v:
+                            in_out_v = m_v.group(1)
+                            # 약국 행은 상병명/코드 없이 금액만 있어 건너뜀
+                            if in_out_v == "약국":
+                                i += 1
+                                continue
+                            days_v   = m_v.group(2)
+                            rest     = m_v.group(3).strip()
+                            # 상병코드 추출 (알파벳+숫자 패턴, 금액 앞)
+                            parts   = rest.split()
+                            code_v  = ""
+                            name_v  = ""
+                            for pi, p in enumerate(parts):
+                                if re.match(r'^[A-Z]\d', p):
+                                    code_v = p
+                                    name_v = " ".join(parts[:pi])
+                                    break
+                            if not name_v and not code_v:
+                                name_v = rest
+                            if name_v or code_v:  # 유효한 레코드만 저장
+                                records.append({
+                                    "진료개시일": cur_date,
+                                    "요양기관명": cur_hospital or "",
+                                    "입내원구분": in_out_v,
+                                    "요양일수":   days_v,
+                                    "상병명":     name_v,
+                                    "상병코드":   code_v,
+                                    "_ftype":     "nhis",
+                                    "_fname":     fname,
+                                })
+                        i += 1
+                    continue
+                i += 1
+            return records
+
+        def _open_pdf(data, bdate_str):
+            """비밀번호 없이 시도 후 실패하면 생년월일 조합으로 재시도"""
+            bd = (bdate_str or "").strip()
+            candidates = [""]
+            if bd:
+                candidates.append(bd)
+                if len(bd) == 8:
+                    candidates.append(bd[2:])          # 19900101 → 900101
+                elif len(bd) == 6:
+                    prefix = "20" if int(bd[:2]) <= 24 else "19"
+                    candidates.append(prefix + bd)     # 900101 → 19900101
+            for pw in candidates:
+                try:
+                    return pdfplumber.open(io.BytesIO(data), password=pw)
+                except Exception:
+                    continue
+            raise ValueError("PDF 비밀번호 해제 실패 — 생년월일을 확인해 주세요.")
+
+        try:
+         for uploaded_file in active_files:
             file_recs = []
-            with pdfplumber.open(uploaded_file) as pdf:
-                for page in pdf.pages:
-                    tables = page.extract_tables()
-                    for table in tables:
-                        if not table or len(table) < 2:
-                            continue
-                        raw_headers = table[0]
-                        headers = [
-                            str(h).replace("\n", "").replace(" ", "") if h else f"col_{i}"
-                            for i, h in enumerate(raw_headers)
-                        ]
-                        ftype = detect_file_type(headers)
-                        for row in table[1:]:
-                            if not any(row):
+            with _open_pdf(uploaded_file.read(), st.session_state.get("pdf_birthdate", "")) as pdf:
+                # 건강보험 요양급여내역 감지
+                first_text = pdf.pages[0].extract_text() or "" if pdf.pages else ""
+                is_nhis = "건강보험 요양급여내역" in first_text
+
+                if is_nhis:
+                    # 텍스트 기반 파싱 (건강보험 요양급여내역 전용)
+                    for page in pdf.pages:
+                        page_text = page.extract_text() or ""
+                        if "건강보험 요양급여내역" in page_text:
+                            recs = parse_nhis_text(page_text, uploaded_file.name)
+                            file_recs.extend(recs)
+                            all_records.extend(recs)
+                else:
+                    # 기존 테이블 기반 파싱 (심평원 자료)
+                    for page in pdf.pages:
+                        tables = page.extract_tables()
+                        for table in tables:
+                            if not table or len(table) < 2:
                                 continue
-                            if "순번" in str(row[0]):
-                                continue
-                            rec = {h: str(v).replace("\n", " ").strip() if v else "" for h, v in zip(headers, row)}
-                            rec["_ftype"] = ftype
-                            rec["_fname"] = uploaded_file.name
-                            all_records.append(rec)
-                            file_recs.append(rec)
+                            raw_headers = table[0]
+                            headers = [
+                                str(h).replace("\n", "").replace(" ", "") if h else f"col_{i}"
+                                for i, h in enumerate(raw_headers)
+                            ]
+                            ftype = detect_file_type(headers)
+                            for row in table[1:]:
+                                if not any(row):
+                                    continue
+                                if "순번" in str(row[0]):
+                                    continue
+                                rec = {h: str(v).replace("\n", " ").strip() if v else "" for h, v in zip(headers, row)}
+                                rec["_ftype"] = ftype
+                                rec["_fname"] = uploaded_file.name
+                                all_records.append(rec)
+                                file_recs.append(rec)
             if file_recs:
                 file_dataframes[uploaded_file.name] = pd.DataFrame(file_recs).fillna("")
+        except ValueError as _pw_err:
+            st.error(f"🔒 {_pw_err}")
+            st.stop()
 
         if not all_records:
             st.error("PDF에서 표 데이터를 추출하지 못했습니다. 비밀번호 잠금 또는 스캔 이미지 형태인지 확인해 주세요.")
@@ -579,10 +778,10 @@ elif menu == "disclosure":
             raw_code = get_val(row, ["코드", "상병코드", "진단코드"])
             code_str = normalize_code(raw_code)
             name_str = get_val(row, ["상병명", "약품명", "진료내역", "행위명"])
-            in_out   = get_val(row, ["입원외래구분", "입원", "외래", "구분"])
+            in_out   = get_val(row, ["입내원구분", "입원외래구분", "입원", "외래", "구분"])
             hospital = get_val(row, ["병·의원", "기관명", "요양기관명"])
-            date_str = get_val(row, ["진료시작일", "진료일", "조제일자", "처방일"])
-            m_days_raw = get_val(row, ["투약일수"])
+            date_str = get_val(row, ["진료개시일", "진료시작일", "진료일", "조제일자", "처방일"])
+            m_days_raw = get_val(row, ["투약일수", "요양일수"])
             m_days = int(re.findall(r"\d+", m_days_raw)[0]) if re.findall(r"\d+", m_days_raw) else 0
 
             group_key = code_str if code_str else name_str[:15]
@@ -626,6 +825,22 @@ elif menu == "disclosure":
                     if drug:
                         if days_ago <= 90: s["drug_names_in_90"].add(drug)
                         else: s["drug_names_before_90"].add(drug)
+                elif ftype == "nhis":
+                    # 건강보험 요양급여내역: 입내원구분으로 입원 직접 확정
+                    if in_out == "입원":
+                        s["inpatient_dates"].add(clean_date)
+                    elif in_out == "약국":
+                        s["has_pharma"] = True
+                    else:
+                        s["visit_dates"].add(clean_date)
+                    # 수술: surg_keywords + 건강보험 전용 수술 상병명 키워드
+                    for kw in surg_keywords + nhis_surg_keywords:
+                        if kw in name_str:
+                            s["surgeries"].add(name_str)
+                            if clean_date: s["surgery_dates"].add(clean_date)
+                            break
+                    for kw in test_keywords:
+                        if kw in name_str: s["tests_found"].add(name_str); break
 
                 if ftype in ("basic", "unknown"):
                     for kw in surg_keywords:
@@ -646,506 +861,1122 @@ elif menu == "disclosure":
 
         # Claude API 분석
         raw_text_lines = []
+        seen_code_dates = set()  # 동일 코드+날짜 중복 제거
+
         for _, row in df.iterrows():
             if row_is_junk(row): continue
             ftype    = str(row.get("_ftype", ""))
-            date_str = get_val(row, ["진료시작일", "진료일", "조제일자", "처방일"])
+            date_str = get_val(row, ["진료개시일", "진료시작일", "진료일", "조제일자", "처방일"])
             code_raw = get_val(row, ["코드", "상병코드", "진단코드"])
             code_str = normalize_code(code_raw)
             name_str = get_val(row, ["상병명", "약품명", "진료내역", "행위명"])
             hospital = get_val(row, ["병·의원", "기관명", "요양기관명"])
-            in_out   = get_val(row, ["입원외래구분", "입원", "외래", "구분"])
-            m_days   = get_val(row, ["투약일수"])
-            v_days   = get_val(row, ["내원일수"])
-            if not date_str and not name_str: continue
-            raw_text_lines.append(f"[{ftype}] 날짜:{date_str} 코드:{code_str} 병명:{name_str[:20]} 병원:{hospital[:10]} 구분:{in_out} 투약일:{m_days} 내원일:{v_days}")
+            in_out   = get_val(row, ["입내원구분", "입원외래구분", "입원", "외래", "구분"])
+            m_days   = get_val(row, ["투약일수", "요양일수"])
+            cost_raw = get_val(row, ["총진료비", "진료비", "총 진료비"])
 
-        raw_text  = "\n".join(raw_text_lines[:600])
+            if not date_str and not name_str: continue
+
+            # 약국($) 단순 조제 행 → 기본진료에 투약일수 있으면 생략
+            if ftype == "pharma" and not m_days:
+                continue
+
+            # 동일 코드+날짜 중복 제거 (병원·약국 중복 방지)
+            dedup_key = (code_str or name_str[:10], date_str)
+            if dedup_key in seen_code_dates:
+                continue
+            seen_code_dates.add(dedup_key)
+
+            # 입원 여부 압축 표시
+            inpatient_flag = "입원" if "입원" in in_out else ""
+
+            raw_text_lines.append(
+                f"{date_str} [{ftype}] {code_str} {name_str[:20]} {hospital[:10]}"
+                + (f" 투약{m_days}일" if m_days and m_days != "0" else "")
+                + (f" 진료비{cost_raw}" if cost_raw else "")
+                + (f" {inpatient_flag}" if inpatient_flag else "")
+            )
+
         today_str = today.strftime('%Y-%m-%d')
         d_3m  = (today - timedelta(days=90)).strftime('%Y-%m-%d')
         d_1y  = (today - timedelta(days=365)).strftime('%Y-%m-%d')
         d_5y  = (today - timedelta(days=1825)).strftime('%Y-%m-%d')
         d_10y = (today - timedelta(days=3650)).strftime('%Y-%m-%d')
 
+        # ══════════════════════════════════════════════
+        # 약 변경 감지 (간편심사 Q1 핵심 판단 로직)
+        # ══════════════════════════════════════════════
+        # disease_stats에서 처방조제 데이터로 약 변경 여부 판단
+        drug_change_summary = []
+
+        # 진단코드별로 3개월 이전/이내 약품명 비교
+        for group_key, s in disease_stats.items():
+            drugs_in_90    = s.get("drug_names_in_90", set())
+            drugs_before_90 = s.get("drug_names_before_90", set())
+
+            if not drugs_in_90 or not drugs_before_90:
+                continue  # 둘 다 있어야 비교 가능
+
+            # 약품명에서 성분명(문자)과 용량(숫자) 분리
+            def extract_drug_info(name: str):
+                """(성분명, 용량_mg) 튜플 반환. 용량 없으면 0"""
+                dose_match = re.search(r'(\d+(?:\.\d+)?)\s*(mg|mcg|ml|g|ug|IU)', name, flags=re.IGNORECASE)
+                dose = float(dose_match.group(1)) if dose_match else 0.0
+                base = re.sub(r'\d+(\.\d+)?\s*(mg|mcg|ml|g|ug|IU|정|캡|앰|바이알)', '', name, flags=re.IGNORECASE).strip()
+                return base, dose
+
+            # {성분명: 용량} 딕셔너리로 변환
+            info_in_90     = {extract_drug_info(d)[0]: extract_drug_info(d)[1] for d in drugs_in_90}
+            info_before_90 = {extract_drug_info(d)[0]: extract_drug_info(d)[1] for d in drugs_before_90}
+
+            norm_in_90     = set(info_in_90.keys())
+            norm_before_90 = set(info_before_90.keys())
+
+            # 3개월 이전에만 있던 약 (중단)
+            stopped_drugs   = norm_before_90 - norm_in_90
+            # 3개월 이내 새로 나타난 약 (추가/변경)
+            new_drugs       = norm_in_90 - norm_before_90
+            # 계속 유지 중인 약
+            continued_drugs = norm_in_90 & norm_before_90
+
+            # 용량 변화 감지 (동일 약 이름, 용량만 다른 경우)
+            dose_increased = []  # 용량 증가 → 가입 불가
+            dose_decreased = []  # 용량 감소 → 가입 가능
+            for drug_name in continued_drugs:
+                dose_before = info_before_90.get(drug_name, 0)
+                dose_after  = info_in_90.get(drug_name, 0)
+                if dose_before > 0 and dose_after > 0:
+                    if dose_after > dose_before:
+                        dose_increased.append(f"{drug_name} ({dose_before}→{dose_after})")
+                    elif dose_after < dose_before:
+                        dose_decreased.append(f"{drug_name} ({dose_before}→{dose_after})")
+
+            # 변경 유형 판단
+            has_change = bool(new_drugs or dose_increased)
+            if has_change or stopped_drugs:
+                if new_drugs and stopped_drugs:
+                    change_type = "약 종류 변경"
+                elif new_drugs:
+                    change_type = "새 약 추가"
+                elif dose_increased:
+                    change_type = "용량 증가"
+                else:
+                    change_type = "약 중단"
+
+                # 가입 불가 케이스만 drug_change_summary에 추가
+                if new_drugs or dose_increased:
+                    drug_change_summary.append({
+                        "group":          group_key,
+                        "name":           s.get("name", group_key),
+                        "continued":      list(continued_drugs)[:3],
+                        "stopped":        list(stopped_drugs)[:3],
+                        "new":            list(new_drugs)[:3],
+                        "dose_increased": dose_increased[:3],
+                        "dose_decreased": dose_decreased[:3],
+                        "change_type":    change_type,
+                    })
+
+        # 약 변경 요약 텍스트 생성 (AI에게 전달)
+        drug_change_text = ""
+        if drug_change_summary:
+            drug_change_text = "\n[처방약 변경 감지 결과 — 간편심사 Q1 판단 필수 참고]\n"
+            for dc in drug_change_summary:
+                drug_change_text += (
+                    f"- 질환: {dc['name']} / 변경유형: {dc['change_type']}\n"
+                    f"  · 3개월 이전 약(중단): {', '.join(dc['stopped']) if dc['stopped'] else '없음'}\n"
+                    f"  · 3개월 이내 신규약(추가/변경): {', '.join(dc['new']) if dc['new'] else '없음'}\n"
+                    f"  · 용량 증가 약(가입불가): {', '.join(dc['dose_increased']) if dc['dose_increased'] else '없음'}\n"
+                    f"  · 용량 감소 약(가입가능): {', '.join(dc['dose_decreased']) if dc['dose_decreased'] else '없음'}\n"
+                    f"  · 계속 유지 중인 약: {', '.join(dc['continued']) if dc['continued'] else '없음'}\n"
+                )
+            drug_change_text += (
+                "※ 가입 불가: 약 종류 변경 / 새 약 추가 / 용량 증가\n"
+                "※ 가입 가능: 동일 약 지속 복용(변경 없음) / 용량 감소 / 약 중단\n"
+            )
+
+        # ══════════════════════════════════════════════
+        # 처방 종료일 계산 (가입 가능 최소 날짜)
+        # ══════════════════════════════════════════════
+        # 원칙: 처방일 + 투약일수 = 처방 종료일. 다음날부터 가입 가능
+        # 3개월 이내 처방이 있는 경우에만 의미 있음
+        earliest_available_date = None
+        prescription_end_details = []
+
+        for group_key, s in disease_stats.items():
+            # 처방조제 우선, 없으면 기본진료 투약일수 사용
+            med_dict = s["med_dates_pharma"] if s["has_pharma"] and s["med_dates_pharma"] else s["med_dates_basic"]
+            if not med_dict:
+                continue
+
+            for presc_date_str, m_days_val in med_dict.items():
+                if not presc_date_str or m_days_val <= 0:
+                    continue
+                try:
+                    presc_dt = datetime.strptime(presc_date_str, "%Y-%m-%d")
+                except ValueError:
+                    continue
+
+                days_ago = (today - presc_dt).days
+                if days_ago > 90:
+                    continue  # 3개월 이전 처방은 제외
+
+                # 처방 종료일 = 처방일 + 투약일수 - 1
+                # 가입 가능 날짜 = 처방 종료일 + 1
+                end_dt       = presc_dt + timedelta(days=m_days_val - 1)
+                available_dt = end_dt + timedelta(days=1)
+
+                prescription_end_details.append({
+                    "name":       s.get("name", group_key),
+                    "presc_date": presc_date_str,
+                    "m_days":     m_days_val,
+                    "end_date":   end_dt.strftime("%Y-%m-%d"),
+                    "available":  available_dt.strftime("%Y-%m-%d"),
+                    "already_ok": available_dt <= today,  # 이미 가입 가능한지
+                })
+
+                if earliest_available_date is None or available_dt > earliest_available_date:
+                    earliest_available_date = available_dt
+
+        # 처방 종료일 요약 텍스트 생성
+        presc_end_text = ""
+        if prescription_end_details:
+            presc_end_text = "\n[3개월 이내 처방 종료일 분석 — 가입 가능 날짜 계산]\n"
+            for p in prescription_end_details:
+                status = "✅ 이미 복약 완료 (가입 가능)" if p["already_ok"] else f"❌ 복약 중 (가입불가 ~ {p['end_date']})"
+                presc_end_text += (
+                    f"- 질환: {p['name']}\n"
+                    f"  처방일: {p['presc_date']} / 투약일수: {p['m_days']}일 / 종료일: {p['end_date']}\n"
+                    f"  → 가입 가능 날짜: {p['available']} / 상태: {status}\n"
+                )
+            if earliest_available_date and earliest_available_date > today:
+                presc_end_text += (
+                    f"\n★ 전체 처방 기준 최소 가입 가능 날짜: {earliest_available_date.strftime('%Y-%m-%d')}\n"
+                    f"  (이 날짜 이전에 청약하면 3개월 이내 투약으로 Q1 해당)\n"
+                )
+            elif earliest_available_date and earliest_available_date <= today:
+                presc_end_text += "\n★ 3개월 이내 처방이 있으나 모두 복약 완료 상태 — 투약 관련 Q1은 면제 가능\n"
+
+        # ── 날짜 필터링: AI에게 넘기기 전에 코드가 직접 처리 ──
+        filtered_lines = []
+        for line in raw_text_lines:
+            date_match = re.search(r'(\d{4}-\d{2}-\d{2})', line)
+            if not date_match:
+                filtered_lines.append(line)
+                continue
+            line_date = date_match.group(1)
+            try:
+                dt = datetime.strptime(line_date, "%Y-%m-%d")
+            except ValueError:
+                filtered_lines.append(line)
+                continue
+            days_ago = (today - dt).days
+
+            if days_ago > 3650:
+                continue
+
+            tags = []
+            if days_ago <= 90:   tags.append("IN_3M")
+            if days_ago <= 365:  tags.append("IN_1Y")
+            if days_ago <= 1825: tags.append("IN_5Y")
+            if days_ago <= 3650: tags.append("IN_10Y")
+
+            filtered_lines.append(line + " [" + ",".join(tags) + "]")
+
+        raw_text = "\n".join(filtered_lines[:400])
+        # 약 변경 감지 결과 추가
+        if drug_change_text:
+            raw_text = drug_change_text + "\n" + raw_text
+        # 처방 종료일 분석 결과 추가
+        if presc_end_text:
+            raw_text = presc_end_text + "\n" + raw_text
+
         if product_type == "건강체/표준체 (일반심사)":
             criteria_text = f"""
 [건강체/표준체 알릴의무 4문항] (기준일: {today_str})
-Q1. 최근 3개월({d_3m} 이후): 질병확정진단 / 의심소견 / 입원·수술·추가검사 필요소견 / 치료 / 투약
-Q2. 최근 3개월({d_3m} 이후): 혈압강하제·신경안정제·수면제·각성제·진통제·마약류 상시 복용
-Q3. 최근 1년({d_1y} 이후): 진찰 후 이상소견으로 추가검사(재검사) 받은 사실
-Q4. 최근 5년({d_5y} 이후): 입원 / 수술(제왕절개 포함) / 계속하여 7일 이상 치료 / 계속하여 30일 이상 투약
-[판단 기준] 내시경+용종절제=수술, 치과발치/임플란트=수술 가능, 당뇨·고혈압 지속투약=30일이상 해당, COVID검사/예방접종 제외"""
+Q1. 최근 3개월({d_3m} 이후) — 태그 [IN_3M] 항목만: 질병확정진단 / 의심소견 / 입원·수술·추가검사 필요소견 / 치료 / 투약
+Q2. 최근 3개월({d_3m} 이후) — 태그 [IN_3M] 항목만: 혈압강하제·신경안정제·수면제·각성제·진통제·마약류 상시 복용
+Q3. 최근 1년({d_1y} 이후) — 태그 [IN_1Y] 항목만: 진찰 후 이상소견으로 추가검사(재검사) 받은 사실
+Q4. 최근 10년({d_10y} 이후) — 태그 [IN_10Y] 항목만: 입원 / 수술(제왕절개 포함) / 계속하여 7일 이상 치료 / 계속하여 30일 이상 투약
+Q5. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 중증질환 확정진단만 해당
+    ① 암 (악성신생물): C00~C97
+    ② 백혈병: C91~C95 (암 포함)
+    ③ 고혈압: I10~I15
+    ④ 협심증: I20
+    ⑤ 심근경색: I21~I22
+    ⑥ 심장판막증: I05~I09, I34~I39
+    ⑦ 간경화증: K74
+    ⑧ 뇌출혈: I60~I62
+    ⑨ 뇌경색: I63~I64
+    ⑩ 당뇨병: E10~E14
+    ⑪ 에이즈: B20~B24, Z21
+    ★ Q5 면제: 위 코드 범위에 해당하지 않는 모든 질환 → Q5 배정 불가"""
         else:
             criteria_text = f"""
 [간편심사(유병자 3-5-5) 알릴의무 3문항] (기준일: {today_str})
-Q1. 최근 3개월({d_3m} 이후): 질병확정진단 / 의심소견 / 추가검사필요소견 / 입원 / 수술
-Q2. 최근 10년({d_10y} 이후): 입원 또는 수술(제왕절개 포함)
-Q3. 최근 5년({d_5y} 이후) 6대질병: 암(C코드) / 협심증(I20) / 심근경색(I21-22) / 심장판막증 / 간경화(K74) / 뇌졸중(I60-64)
-[면제] 7일 미만 단순 통원, 30일 미만 단순 투약, 6대질병 외 단순 통원/투약"""
+Q1. 최근 3개월({d_3m} 이후) — 태그 [IN_3M] 항목만:
+    ① 질병확정진단 / 의심소견 / 추가검사필요소견 / 입원 / 수술
+    ② 3개월 이전부터 복용하던 약의 변화 → 아래 기준으로 Q1 판단:
+       [가입 불가 → Q1 해당]
+       - 약 종류 자체가 바뀐 경우 (성분명 변경)
+       - 3개월 이내 완전히 새로운 약이 추가된 경우
+       - 동일 약의 용량이 증가한 경우 (예: 메트포르민 500mg → 1000mg)
+       [가입 가능 → Q1 해당 아님]
+       - 동일 약을 변경 없이 계속 복용 중인 경우
+       - 동일 약의 용량만 감소한 경우 (예: 메트포르민 1000mg → 500mg)
+       - 복용하던 약을 중단한 경우
+Q2. 최근 10년({d_10y} 이후) — 태그 [IN_10Y] 항목만: 입원 또는 수술(제왕절개 포함)
+Q3. 최근 5년({d_5y} 이후) — 태그 [IN_5Y] 항목만: 아래 6대 중증질환 확정진단만 해당
+    ① 암: C00~C97 (악성신생물 전체)
+    ② 뇌출혈: I60~I62
+    ③ 뇌경색: I63~I64
+    ④ 협심증: I20
+    ⑤ 심근경색: I21~I22
+    ⑥ 심장판막증: I05~I09, I34~I39
+    ⑦ 간경화: K74
+
+    ★ Q3 절대 면제 (아무리 심해도 Q3 배정 불가):
+    - 당뇨병 (E10~E14 계열) → Q3 해당 아님, Q4만 가능
+    - 고혈압 (I10~I15) → Q3 해당 아님
+    - 무릎관절증·척추협착 등 근골격계 → Q3 해당 아님
+    - 만성신부전·갑상선·고지혈증 등 → Q3 해당 아님
+    - 위/대장 용종 → Q3 해당 아님
+    - 6대 중증질환 KCD 코드가 아닌 모든 질환 → Q3 배정 절대 불가
+
+[면제] 7일 미만 단순 통원 / 30일 미만 단순 투약 / 6대 중증질환 KCD 코드가 아닌 모든 질환
+[약 변경 면제] 3개월 이전부터 동일 약 지속 복용(변경 없음) → 면제 / 동일 약 용량만 감소 → 면제"""
 
         system_prompt = f"""당신은 보험 언더라이팅 전문 AI입니다.
-건강보험심사평가원(건강e음) 진료 데이터를 분석하여 보험 가입 시 알릴의무(고지의무) 해당 항목을 정확히 판단합니다.
-코드 앞 A(양방)/B(한방) 접두사 제거, 숫자1→I 교정, $ 해당없음 행 완전 제외.
+건강보험심사평가원(건강e음) 진료 데이터를 분석하여 보험 청약 시 알릴의무(고지의무) 해당 항목을 정확히 판단합니다.
+판단의 정확도가 최우선입니다. 과잉 고지도, 누락도 모두 금물입니다.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[1단계: 코드 전처리]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+- 코드 앞 A(양방)/B(한방) 접두사 제거 (예: AK635→K63.5, AE1150→E11.50, BM179→M17.9)
+- 숫자 1로 시작하는 코드 → I로 교정 (OCR 오류, 예: 1670→I67.0)
+- $ 또는 해당없음 행 → 완전 제외
+- COVID 검사(AZ115/AU071/AU072) · 예방접종(AZ코드) → 완전 제외
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[2단계: 날짜 태그 기반 질문 배정 — 절대 규칙]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+각 진료 데이터 끝에 붙은 태그만으로 해당 질문을 결정합니다.
+태그에 없는 기간의 질문에는 절대 배정하지 마세요.
+- [IN_3M] 있어야만 → Q1, Q2(건강체) / Q1(간편) 배정 가능
+- [IN_1Y] 있어야만 → Q3(건강체) 배정 가능
+- [IN_5Y] 있어야만 → Q5(건강체) / Q3(간편) 배정 가능
+- [IN_10Y] 있어야만 → Q4(건강체) / Q2(간편) 배정 가능
+- [IN_3M] 없으면 → Q1/Q2 배정 절대 불가
+- [IN_10Y]만 있고 [IN_3M] 없으면 → Q4만 배정 (Q1 절대 불가)
+
 {criteria_text}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[3단계: 간편심사 약 변경 판단 — 핵심 규칙]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+상단에 [처방약 변경 감지 결과]가 있으면 반드시 아래 기준으로 판단하세요.
+
+▶ 간편심사 Q1 해당 (가입 불가):
+  - 3개월 이전부터 복용하던 약의 종류가 변경된 경우
+  - 3개월 이전에 없던 새로운 약이 3개월 이내 추가된 경우
+  - 동일 약의 용량이 증가한 경우 (예: 500mg → 1000mg) ← 악화 신호
+  → duty_question="Q1", reason에 구체적 변경 내용 명시
+
+▶ 간편심사 Q1 해당 아님 (가입 가능):
+  - 3개월 이전부터 동일 약을 변경 없이 계속 복용 중인 경우
+  - 동일 약의 용량만 감소한 경우 (예: 1000mg → 500mg) ← 호전 신호
+  - 복용하던 약이 중단된 경우 ← 호전 신호
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[3-1단계: 처방 종료일 기준 가입 가능 날짜 판단]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+상단에 [3개월 이내 처방 종료일 분석]이 있으면 반드시 아래 기준으로 판단하세요.
+
+▶ 처방 종료일 계산 원칙:
+  - 처방일 + 투약일수 = 처방 종료일 (마지막 복약일)
+  - 처방 종료일 다음날 = 가입 가능 최소 날짜
+  - 예: 3월 1일 처방 + 7일치 → 종료일 3월 7일 → 가입가능 3월 8일부터
+
+▶ 3개월 이내 처방이 있는 경우 Q1 판단:
+  - 복약 중(오늘 < 가입가능날짜): Q1 해당 → 가입불가, reason에 "복약 중 (가입가능날짜: YYYY-MM-DD)" 명시
+  - 복약 완료(오늘 >= 가입가능날짜): Q1 해당 아님 → 투약 자체는 면제 가능
+    단, 진단/소견 자체가 3개월 이내이면 Q1 해당 여부 별도 판단 필요
+
+▶ 분석 데이터에서 "✅ 이미 복약 완료" 표시된 항목:
+  - 해당 처방으로 인한 투약 Q1은 면제. 단 진단 자체가 3개월 이내면 Q1 해당 가능
+
+▶ 분석 데이터에서 "❌ 복약 중" 표시된 항목:
+  - 반드시 Q1 포함, reason에 "복약 중 — 가입 가능 날짜: [날짜]" 명시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[4단계: Q4 수술 인정 목록 — 반드시 is_surgery=true]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[소화기 내시경 수술]
+- K63.5/AK635 결장용종 → 대장내시경 용종절제술 ★반드시 수술
+- K31/AK31 위용종 → 위내시경 용종절제술
+- K92.1 혈변+내시경 지혈술 → 수술
+- 위/대장 폴립, 용종 관련 진료비 30만원 이상 외래 → 수술 가능성
+
+[치과 수술]
+- K08.1/AK081 발치 → 발치술 ★반드시 수술
+- K04.7/AK047 근단주위농양 절개 → 수술
+- 임플란트 시술 → 수술
+
+[안과 수술]
+- H25/AH25 백내장 → 백내장 수술 (진료비 50만원 이상)
+- H33/AH33 망막박리 → 망막수술
+- H40/AH40 녹내장 수술
+
+[정형/신경외과 수술]
+- 척추/관절 진료비 50만원 이상 + 입원 → 수술 가능
+- 골절(S계열) + 수술 키워드 → 골절 수술
+
+[산부인과 수술]
+- O84/AO84 제왕절개 → ★반드시 수술
+- D25/AD25 자궁근종 절제 → 수술
+- N83/AN83 난소낭종 제거 → 수술
+
+[피부/성형외과 수술]
+- L02/AL02 농양 절개배농 → 수술
+- M72.66/AM7266 괴사성근막염 → 광범위절제술 ★반드시 수술 (critical)
+- 피부과 진료비 10만원 이상 + 절개 키워드 → 수술
+
+[공통 수술 판단 규칙]
+- 입원 동반 + 외과/흉부외과/성형외과/산부인과 → 수술 가능성 높음
+- 진료비 총액 100만원 이상 외래 1회 → 수술 강력 의심
+- 병명/진료내역에 절제·절개·봉합·이식·성형·제거·적출 포함 → 수술
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[5단계: Q3(간편) 절대 면제 + Q4 면제 판단 — 과잉 고지 방지]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+▶ 간편심사 Q3 절대 면제 규칙 (★최우선 적용):
+  간편심사 Q3는 아래 7가지 KCD 코드 계열만 해당. 나머지는 모두 Q3 배정 절대 불가.
+  허용: C00~C97(암) / I60~I62(뇌출혈) / I63~I64(뇌경색) / I20(협심증) / I21~I22(심근경색) / I05~I09·I34~I39(심장판막증) / K74(간경화)
+
+  Q3에 절대 배정하면 안 되는 대표 질환:
+  - 당뇨병 E10~E14 계열 (합병증 포함 E11.50 등) → Q3 불가, Q4만
+  - 고혈압 I10~I15 → Q3 불가
+  - 무릎관절증 M17 / 척추협착 M48 → Q3 불가
+  - 망막장애 H35 → Q3 불가
+  - 위·대장 용종 K63.5 / K31 → Q3 불가
+  - 메니에르 H81 / 위장출혈 K92 → Q3 불가
+  - 발치 K08 / 피부질환 L98 → Q3 불가
+  - 근막염 M72 → Q3 불가 (Q2 대상)
+  위 질환들이 Q3에 들어와 있으면 반드시 제거하고 올바른 질문으로 재배정하세요.
+
+▶ Q4 반드시 면제 처리 항목:
+  ① 단순 외래 1~3회, 투약 30일 미만, 입원 없음, 수술 없음
+  ② 단순 감기·비염·인후염·결막염·두드러기·타박상·염좌
+  ③ 치과 스케일링·단순 충치 보존치료 (발치·임플란트 제외)
+  ④ 한방 단순 침구치료 (수술/입원 미동반)
+  ⑤ 단순 통원 검사만 받고 종결 (수술/입원/7일이상 치료 없음)
+  ⑥ 방광염·요로감염 단순 항생제 투약 (1회성)
+  ⑦ 알레르기성 피부염 단순 외래 1~2회
+
+▶ 만성질환 30일이상 투약 판단:
+  - 당뇨(E11계열): 매월 지속 처방 확인 시 → med_days=365, Q4 해당 (Q3 아님)
+  - 고혈압(I10계열): 매월 지속 처방 → med_days=365, Q4 해당 (Q3 아님)
+  - 고지혈증(E78계열): 매월 지속 처방 → med_days=365, Q4 해당
+  - 갑상선(E03/E05): 매월 지속 처방 → med_days=365, Q4 해당
+  - 단, 3개월 이내에만 처방 기록이 있고 이전 기록 없음 → Q1 해당 가능
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+[6단계: weight(중요도) 배정]
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+- critical: 암(C계열)/뇌졸중(I60-64)/심근경색(I21-22)/협심증(I20)/간경화(K74)/심장판막(I05-09,I34-39)/괴사성근막염
+- high: 당뇨합병증/고혈압/신부전/간질환/정신질환/척추수술/관절치환
+- mid: 용종절제/발치/단순 만성질환/30일이상 투약
+- low: 단순 외래 통원/감기/염좌/치과 단순치료
+
 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트 없이 순수 JSON:
 {{
-  "flagged_items": [{{
-    "date":"YYYY-MM-DD","code":"KCD코드","disease":"질병/수술명(한글)","hospital":"병원명",
-    "duty_question":"Q1또는Q2또는Q3또는Q4","reason":"고지판단사유(구체적)",
-    "is_inpatient":true또는false,"inpatient_days":숫자,"is_surgery":true또는false,
-    "surgery_name":"수술명또는null","med_days":숫자,"weight":"critical또는high또는mid또는low"
-  }}],
-  "exempt_items":[],
-  "q1_hit":true또는false,"q1_reason":"사유",
-  "q2_hit":true또는false,"q2_reason":"약물명또는없음",
-  "q3_hit":true또는false,"q3_reason":"사유",
-  "q4_hit":true또는false,"q4_reason":"사유",
-  "simple_q1_hit":true또는false,
-  "simple_q2_hit":true또는false,"simple_q2_reason":"상세",
-  "simple_q3_hit":true또는false,"simple_q3_disease":"6대질병명또는null",
-  "total_flagged":숫자,
-  "health_verdict":"가능또는조건부또는불가","health_reason":"한줄",
-  "simple_verdict":"가능또는조건부또는불가","simple_reason":"한줄",
-  "recommend":"권장사항","summary":"설계사핵심요약2줄"
-}}"""
+  "flagged_items": [
+    {{
+      "date": "YYYY-MM-DD",
+      "code": "정규화된 KCD코드 (예: E11.50)",
+      "disease": "질병/수술명 (한글로 명확하게)",
+      "hospital": "병원명",
+      "duty_question": "Q1 또는 Q2 또는 Q3 또는 Q4",
+      "reason": "고지 판단 사유 (구체적으로, 예: 대장내시경 용종절제술=수술 해당)",
+      "is_inpatient": true또는false,
+      "inpatient_days": 숫자또는0,
+      "is_surgery": true또는false,
+      "surgery_name": "수술명 또는 null",
+      "med_days": 투약일수숫자또는0,
+      "weight": "critical 또는 high 또는 mid 또는 low"
+    }}
+  ],
+  "exempt_items": [],
+  "q1_hit": true또는false, "q1_reason": "사유",
+  "q2_hit": true또는false, "q2_reason": "해당 약물명 또는 없음",
+  "q3_hit": true또는false, "q3_reason": "사유",
+  "q4_hit": true또는false, "q4_reason": "입원/수술/7일이상/30일이상 중 해당 사유",
+  "simple_q1_hit": true또는false, "simple_q1_reason": "사유",
+  "simple_q2_hit": true또는false, "simple_q2_reason": "입원 또는 수술 상세",
+  "simple_q3_hit": true또는false, "simple_q3_disease": "6대질병명 또는 null",
+  "drug_change_hit": true또는false, "drug_change_reason": "변경된 약 정보 또는 없음",
+  "total_flagged": 숫자,
+  "health_verdict": "가능 또는 조건부 또는 불가",
+  "health_reason": "판단 이유 한 줄",
+  "simple_verdict": "가능 또는 조건부 또는 불가",
+  "simple_reason": "판단 이유 한 줄",
+  "recommend": "건강체 진행 또는 간편심사 전환 권장 또는 인수 불가 가능성",
+  "summary": "설계사를 위한 핵심 요약 2줄"
+}}
 
-        try:
-            api_client = anthropic.Anthropic(
-                api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
-            )
-            message = api_client.messages.create(
-                model="claude-opus-4-5", max_tokens=3000, system=system_prompt,
-                messages=[{"role": "user", "content": f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"}]
-            )
-            raw_response   = message.content[0].text
-            clean_response = raw_response.replace("```json", "").replace("```", "").strip()
-            ai_result      = json.loads(clean_response)
-        except json.JSONDecodeError as e:
-            st.error(f"AI 응답 파싱 오류: {e}"); st.stop()
-        except Exception as e:
-            st.error(f"Claude API 호출 오류: {e}"); st.stop()
+절대 규칙: 응답은 반드시 {{ 로 시작하고 }} 로 끝나는 순수 JSON만 출력하세요.
+설명, 주석, 마크다운 백틱, 전후 텍스트 일체 금지."""
+
+        def extract_json(text: str) -> dict:
+            """응답 텍스트에서 JSON 추출 — 여러 방법 시도"""
+            # 1) 백틱 제거 후 바로 파싱
+            cleaned = text.replace("```json", "").replace("```", "").strip()
+            try:
+                return json.loads(cleaned)
+            except Exception:
+                pass
+
+            # 2) { 시작 ~ } 끝 구간만 추출
+            start = cleaned.find("{")
+            end   = cleaned.rfind("}") + 1
+            if start != -1 and end > start:
+                try:
+                    return json.loads(cleaned[start:end])
+                except Exception:
+                    pass
+
+            # 3) 줄 단위로 JSON 블록 찾기
+            lines = cleaned.split("\n")
+            json_lines = []
+            in_json = False
+            brace_count = 0
+            for line in lines:
+                if not in_json and line.strip().startswith("{"):
+                    in_json = True
+                if in_json:
+                    json_lines.append(line)
+                    brace_count += line.count("{") - line.count("}")
+                    if brace_count <= 0 and json_lines:
+                        break
+            if json_lines:
+                try:
+                    return json.loads("\n".join(json_lines))
+                except Exception:
+                    pass
+
+            raise ValueError(f"JSON 추출 실패. 원문 앞 200자: {text[:200]}")
+
+        # API 호출 (실패 시 1회 재시도)
+        api_client = anthropic.Anthropic(
+            api_key=st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+        )
+
+        ai_result = None
+        last_error = None
+
+        for attempt in range(2):
+            try:
+                message = api_client.messages.create(
+                    model="claude-sonnet-4-5", max_tokens=4000, system=system_prompt,
+                    messages=[{
+                        "role": "user",
+                        "content": f"고객 기준일: {today_str}\n심사 유형: {product_type}\n\n진료 데이터:\n{raw_text}"
+                    }]
+                )
+                raw_response = message.content[0].text if message.content else ""
+                if not raw_response.strip():
+                    raise ValueError("AI 응답이 비어있습니다.")
+                ai_result = extract_json(raw_response)
+                break
+            except (ValueError, json.JSONDecodeError) as e:
+                last_error = e
+                if attempt == 0:
+                    continue
+                with st.expander("🔧 디버그 (개발자용)"):
+                    try:
+                        st.code(raw_response[:800])
+                    except Exception:
+                        st.write("raw_response 없음")
+                st.error(f"AI 응답 파싱 오류: {e}")
+                st.stop()
+            except Exception as e:
+                st.error(f"Claude API 호출 오류: {e}")
+                st.stop()
+
+        if ai_result is None:
+            st.error(f"AI 분석 실패: {last_error}")
+            st.stop()
 
         summary_reports = defaultdict(list)
         flagged_codes   = set()
 
+        # 간편심사 Q3 허용 KCD 코드 (6대 중증질환만)
+        SIMPLE_Q3_ALLOWED_PREFIXES = (
+            # 암
+            "C",
+            # 뇌출혈
+            "I60","I61","I62",
+            # 뇌경색
+            "I63","I64",
+            # 협심증
+            "I20",
+            # 심근경색
+            "I21","I22",
+            # 심장판막증
+            "I05","I06","I07","I08","I09","I34","I35","I36","I37","I38","I39",
+            # 간경화
+            "K74",
+        )
+
+        def is_simple_q3_allowed(code: str) -> bool:
+            """간편심사 Q3 허용 코드인지 확인"""
+            code = code.upper().strip()
+            for prefix in SIMPLE_Q3_ALLOWED_PREFIXES:
+                if code.startswith(prefix):
+                    return True
+            return False
+
+        # 동일 코드 + 동일 질문번호 중복 병합
+        merged_items = {}  # key: (code, duty_question)
+
         for item in ai_result.get("flagged_items", []):
-            q = item.get("duty_question", "Q1")
-            if product_type == "건강체/표준체 (일반심사)":
-                q_map = {"Q1":"[1번 질문] 3개월 이내 의료행위","Q2":"[2번 질문] 3개월 이내 혈압강하제 등 상시 복용","Q3":"[3번 질문] 1년 이내 추가검사(재검사)","Q4":"[4번 질문] 5년 이내 입원/수술/7일이상치료/30일이상투약"}
-            else:
-                q_map = {"Q1":"[간편 1번] 3개월 이내 진단/소견","Q2":"[간편 2번] 10년 이내 입원/수술","Q3":"[간편 3번] 5년 이내 6대 중증 질환"}
-            q_title  = q_map.get(q, f"[{q}]")
+            q_raw    = item.get("duty_question", "Q1")
             code_key = item.get("code", item.get("disease", "unknown"))
+
+            # "Q1,Q4" 또는 "Q1/Q4" 처럼 복수 질문이 묶인 경우 분리
+            q_list = [q.strip() for q in re.split(r"[,/\s]+", q_raw) if re.match(r"Q\d+", q.strip())]
+            if not q_list:
+                q_list = [q_raw.strip()]
+
+            for q in q_list:
+                # 간편심사 Q3에 6대 중증질환 외 코드가 들어오면 제거
+                if product_type == "간편심사 (유병자 3-5-5 기준)" and q == "Q3":
+                    if not is_simple_q3_allowed(code_key):
+                        continue  # Q3 배정 불가 — 완전 제외
+
+                merge_key = (code_key, q)
+
+                if merge_key not in merged_items:
+                    merged_items[merge_key] = {
+                        "dates":          [item.get("date", "")],
+                        "code":           item.get("code", "-"),
+                        "name":           item.get("disease", ""),
+                        "duty_question":  q,
+                        "reason":         item.get("reason", ""),
+                        "is_inpatient":   item.get("is_inpatient", False),
+                        "inpatient_days": item.get("inpatient_days", 0),
+                        "is_surgery":     item.get("is_surgery", False),
+                        "surgery_name":   item.get("surgery_name"),
+                        "surgery_dates":  [item.get("date","")] if item.get("is_surgery") else [],
+                        "med_days":       item.get("med_days", 0),
+                        "weight":         item.get("weight", "mid"),
+                        "hospitals":      [item.get("hospital", "")],
+                    }
+                else:
+                    m = merged_items[merge_key]
+                    # 날짜 병합 (최초~최근)
+                    if item.get("date"):
+                        m["dates"].append(item.get("date",""))
+                    # 수술 병합 (한 번이라도 수술이면 수술로)
+                    if item.get("is_surgery"):
+                        m["is_surgery"] = True
+                        if item.get("date"):
+                            m["surgery_dates"].append(item.get("date",""))
+                    # 입원일수 합산
+                    m["inpatient_days"] += item.get("inpatient_days", 0)
+                    # 투약일수 최대값 유지
+                    m["med_days"] = max(m["med_days"], item.get("med_days", 0))
+                    # 중요도 높은 쪽 유지
+                    weight_order = {"critical":4,"high":3,"mid":2,"low":1}
+                    if weight_order.get(item.get("weight","low"),0) > weight_order.get(m["weight"],0):
+                        m["weight"] = item.get("weight","mid")
+                    # 병원명 추가
+                    if item.get("hospital") and item["hospital"] not in m["hospitals"]:
+                        m["hospitals"].append(item["hospital"])
+
+        # 병합된 항목을 summary_reports에 추가
+        for merge_key, m in merged_items.items():
+            code_key = m["code"]
+            q        = m["duty_question"]
             flagged_codes.add(code_key)
+
+            if product_type == "건강체/표준체 (일반심사)":
+                q_map = {"Q1":"[1번질문] 3개월 이내 의료행위","Q2":"[2번질문] 3개월 이내 혈압강하제 등 상시 복용","Q3":"[3번질문] 1년 이내 추가검사(재검사)","Q4":"[4번질문] 10년 이내 입원/수술/7일이상치료/30일이상투약","Q5":"[5번질문] 5년 이내 중증질환"}
+            else:
+                q_map = {"Q1":"[간편1번질문] 3개월 이내 진단/소견","Q2":"[간편2번질문] 10년 이내 입원/수술","Q3":"[간편3번질문] 5년 이내 6대 중증 질환"}
+            q_title = q_map.get(q, f"[{q}번질문]")
+
+            dates_sorted = sorted([d for d in m["dates"] if d])
+            first_date   = dates_sorted[0]  if dates_sorted else ""
+            latest_date  = dates_sorted[-1] if dates_sorted else ""
+            surgery_count = len(set(m["surgery_dates"])) if m["is_surgery"] else 0
+
             summary_reports[q_title].append({
-                "first_date":     item.get("date", ""),
-                "latest_date":    item.get("date", ""),
-                "code":           item.get("code", "-"),
-                "name":           item.get("disease", ""),
-                "visit":          1,
-                "max_single_med": item.get("med_days", 0),
-                "total_med":      item.get("med_days", 0),
-                "inpatient":      item.get("inpatient_days", 0),
-                "inpatient_dates":[item.get("date","")] if item.get("is_inpatient") else [],
-                "surgeries":      {item.get("surgery_name")} if item.get("is_surgery") and item.get("surgery_name") else set(),
-                "surgery_dates":  [item.get("date","")] if item.get("is_surgery") else [],
-                "hospitals":      [item.get("hospital","")],
-                "detail":         item.get("reason",""),
-                "weight":         item.get("weight","mid"),
+                "first_date":     first_date,
+                "latest_date":    latest_date,
+                "code":           m["code"],
+                "name":           m["name"],
+                "visit":          len(dates_sorted),
+                "max_single_med": m["med_days"],
+                "total_med":      m["med_days"],
+                "inpatient":      m["inpatient_days"],
+                "inpatient_dates":dates_sorted if m["is_inpatient"] else [],
+                "surgeries":      {m["surgery_name"]} if m["is_surgery"] and m["surgery_name"] else ({"수술"} if m["is_surgery"] else set()),
+                "surgery_dates":  list(set(m["surgery_dates"])),
+                "hospitals":      m["hospitals"],
+                "detail":         m["reason"],
+                "weight":         m["weight"],
             })
 
-        st.session_state["ai_result"] = ai_result
+        st.session_state["ai_result"]               = ai_result
+        st.session_state["summary_reports"]          = {k: list(v) for k, v in summary_reports.items()}
+        st.session_state["flagged_codes"]            = flagged_codes
+        st.session_state["prescription_end_details"] = prescription_end_details
+        st.session_state["drug_change_summary"]      = drug_change_summary
+
 
     # ==========================================
-    # 요약 수치
+    # 결과 표시
     # ==========================================
-    flagged_count   = len(flagged_codes)
-    total_q_count   = len(summary_reports)
-    total_visit_sum = sum(len(s["visit_dates"]) + len(s["inpatient_dates"]) for s in disease_stats.values() if s["latest_date"] != "2000-01-01")
-    total_med_sum   = sum(sum((s["med_dates_pharma"] if s["has_pharma"] and s["med_dates_pharma"] else s["med_dates_basic"]).values()) for s in disease_stats.values() if s["latest_date"] != "2000-01-01")
+    if not st.session_state.get("ai_result"):
+        st.stop()
 
-    # AI 판정 배너
+    # 캐시된 분석 결과 복원
+    summary_reports          = defaultdict(list, st.session_state.get("summary_reports", {}))
+    flagged_codes            = st.session_state.get("flagged_codes", set())
+    prescription_end_details = st.session_state.get("prescription_end_details", [])
+    drug_change_summary      = st.session_state.get("drug_change_summary", [])
+    today                    = st.session_state.get("analysis_today", datetime.today())
+
+    flagged_count = len(flagged_codes)
+    total_q_count = len(summary_reports)
+
+    # AI 판정
     ai_res    = st.session_state.get("ai_result", {})
     verdict   = ai_res.get("health_verdict", "") if product_type == "건강체/표준체 (일반심사)" else ai_res.get("simple_verdict", "")
     reason    = ai_res.get("health_reason",  "") if product_type == "건강체/표준체 (일반심사)" else ai_res.get("simple_reason", "")
     recommend = ai_res.get("recommend", "")
 
-    if verdict == "가능":
-        v_cls, v_icon, v_label = "verdict-ok",  "✅", "인수 가능"
-    elif verdict == "불가":
-        v_cls, v_icon, v_label = "verdict-bad", "❌", "인수 불가"
-    else:
-        v_cls, v_icon, v_label = "verdict-warn","⚠️", "조건부 가능"
 
-    st.markdown(f"""
-    <div class="verdict-banner {v_cls}">
-        <div class="verdict-icon">{v_icon}</div>
-        <div class="verdict-content">
-            <div class="verdict-label">AI 심사 판정</div>
-            <div class="verdict-title">{v_label} — {verdict}</div>
-            <div class="verdict-desc">{reason}<br><span style="font-weight:600;">권장: {recommend}</span></div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    card_class = "danger" if flagged_count >= 5 else ("warn" if flagged_count > 0 else "ok")
-    card_icon  = "🚨" if flagged_count >= 5 else ("⚠️" if flagged_count > 0 else "✅")
-    st.markdown(f"""
-    <div class="summary-grid">
-        <div class="stat-card {card_class}">
-            <div class="sc-icon">{card_icon}</div>
-            <div class="sc-label">고지 대상 질환</div>
-            <div class="sc-value">{flagged_count}</div>
-            <div class="sc-sub">{'간편심사 전환 검토' if flagged_count >= 5 else ('고지 항목 있음' if flagged_count > 0 else '이상 없음')}</div>
-        </div>
-        <div class="stat-card">
-            <div class="sc-icon">📋</div>
-            <div class="sc-label">해당 질문 항목</div>
-            <div class="sc-value">{total_q_count}</div>
-            <div class="sc-sub">청약서 기재 필요</div>
-        </div>
-        <div class="stat-card">
-            <div class="sc-icon">🏥</div>
-            <div class="sc-label">누적 진료일</div>
-            <div class="sc-value">{total_visit_sum}</div>
-            <div class="sc-sub">입원 포함 총 일수</div>
-        </div>
-        <div class="stat-card">
-            <div class="sc-icon">💊</div>
-            <div class="sc-label">누적 투약일</div>
-            <div class="sc-value">{total_med_sum}</div>
-            <div class="sc-sub">합계 기준</div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if product_type == "건강체/표준체 (일반심사)" and flagged_count >= 5:
-        st.markdown(f"""
-        <div class="switch-banner">
-            🔄 <span>고지 대상 질환 <b>{flagged_count}개</b> — 간편심사 전환 시 청약 가능성이 높아집니다. 사이드바에서 심사 기준을 변경해 시뮬레이션하세요.</span>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # ==========================================
-    # 탭
-    # ==========================================
-    tab1, tab2, tab3 = st.tabs(["📋 고지 판정 리포트", "🔍 원본 데이터", "💬 카톡 전송 & PDF"])
-
-    # ── TAB 1: 고지 판정 리포트 ──
-    with tab1:
-        if not summary_reports:
-            st.markdown("""
-            <div class="clean-card">
-                <span style="font-size:2rem;">✅</span>
-                <div>
-                    <div>고지 대상 없음 — 표준체 심사 진행 가능</div>
-                    <div style="font-size:0.8rem;font-weight:400;color:#166534;margin-top:4px;">설정 기간 내 알릴의무 해당 이력이 발견되지 않았습니다.</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+    # ── 판정 세분화 ──
+    # 건강체: 가능 / 조건부(부담보 최대5개 AND/OR 할증) / 불가
+    # 간편심사: 가능 / 불가 (조건부 없음)
+    #   10년내 입원/수술 경증질환은 회사별 최대 5개까지 인수 가능 → 별도 안내
+    if product_type == "건강체/표준체 (일반심사)":
+        if verdict == "가능":
+            v_cls, v_icon, v_label = "verdict-ok",  "✅", "인수 가능"
+            v_detail = "고지 항목 없음 또는 경미 — 표준체 진행 가능합니다."
+        elif verdict == "불가":
+            v_cls, v_icon, v_label = "verdict-bad", "❌", "인수 불가"
+            v_detail = reason
+        else:  # 조건부
+            v_cls, v_icon, v_label = "verdict-warn", "⚠️", "조건부 인수 가능"
+            v_detail = (
+                f"{reason}<br>"
+                f"<span style='color:#92400e;font-size:0.78rem;'>"
+                f"※ 건강체 조건부 기준: <b>부담보 부위 최대 5개</b> AND/OR <b>할증</b> 적용 시 승인 가능"
+                f"</span>"
+            )
+    else:  # 간편심사
+        if verdict == "가능":
+            v_cls, v_icon, v_label = "verdict-ok",  "✅", "인수 가능"
+            v_detail = "고지 항목 없음 — 간편심사 진행 가능합니다."
         else:
-            st.markdown("""
-            <div class="warn-banner">
-                ⚠️ 아래 항목은 AI가 분석한 <b>필수 고지 대상</b>입니다. 청약서 해당 번호에 정확히 기재하세요.
-            </div>
-            """, unsafe_allow_html=True)
-
-            import html as _html
-
-            for q_title in sorted(summary_reports.keys()):
-                items   = summary_reports[q_title]
-                q_badge = re.sub(r"\].*", "]", q_title).strip("[]").strip()
-                q_label = re.sub(r"^\[.*?\]\s*", "", q_title)
-
-                st.markdown(
-                    f'<div class="duty-card">'
-                    f'<div class="duty-card-head">'
-                    f'<span class="duty-q-badge">{_html.escape(q_badge)}</span>'
-                    f'<span class="duty-q-title">{_html.escape(q_label)}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True,
+            # 10년내 입원/수술 건수 파악 → 경증이면 5개까지 인수 가능 안내
+            simple_q2_items = summary_reports.get("[간편 2번] 10년 이내 입원/수술", [])
+            q2_count = len(simple_q2_items)
+            if verdict == "조건부" or q2_count > 0:
+                v_cls, v_icon, v_label = "verdict-warn", "⚠️", "추가 확인 필요"
+                v_detail = (
+                    f"{reason}<br>"
+                    f"<span style='color:#92400e;font-size:0.78rem;'>"
+                    f"※ 간편심사: 10년 이내 입원/수술이라도 <b>경증 질환(회사별 예외목록)</b>은 "
+                    f"최대 <b>5개까지</b> 인수 가능 — 인수팀에 질환 종류 확인 필요"
+                    f"</span>"
                 )
+            else:
+                v_cls, v_icon, v_label = "verdict-bad", "❌", "인수 불가"
+                v_detail = reason
 
-                for item in items:
-                    hosp      = _html.escape(", ".join(item["hospitals"])[:25] if item["hospitals"] else "기록 없음")
-                    name      = _html.escape(item["name"][:30] or "(병명 미상)")
-                    code      = _html.escape(item["code"])
-                    fd        = _html.escape(item["first_date"])
-                    ld        = _html.escape(item["latest_date"])
-                    detail    = _html.escape(item["detail"])
-                    inpatient = item["inpatient"]
-                    n_surg    = len(item["surgeries"])
-                    max_med   = item["max_single_med"]
-                    med       = item["total_med"]
+    # ── 임포트 ──
+    import streamlit.components.v1 as components
+    import html as _html
 
-                    inpt_pill    = f'<span class="stat-pill red">🏥 입원 {inpatient}일</span>' if inpatient > 0 else ""
-                    surg_pill    = f'<span class="stat-pill red">🔪 수술 {n_surg}건</span>'    if n_surg > 0  else ""
-                    max_med_pill = f'<span class="stat-pill purple">📋 단일처방 최대 {max_med}일</span>' if max_med >= 30 else ""
+    # 카카오 메시지 생성 (설계 의뢰용 — 고지 병력만)
+    kakao_msg  = f"📋 [{product_type} 고지 사항]\n"
+    kakao_msg += f"■ 기준일: {today.strftime('%Y-%m-%d')}\n\n"
+    if not summary_reports:
+        kakao_msg += "✅ 고지 대상 없음\n"
+    else:
+        for q_title in sorted(summary_reports.keys()):
+            clean_title = re.sub(r"^\[.*?\]\s*", "", q_title)
+            kakao_msg  += f"▶ {clean_title}\n"
+            for item in summary_reports[q_title]:
+                hosp = ", ".join(item["hospitals"]) if item["hospitals"] else "알 수 없음"
+                kakao_msg += f"■ {item['name']} ({item['code']})\n"
+                kakao_msg += f"  - 기간: {item['first_date']} ~ {item['latest_date']}\n"
+                kakao_msg += f"  - 병원: {hosp}\n"
+                kakao_msg += f"  - 사유: {item['detail']}\n"
+                if item["inpatient"] > 0: kakao_msg += f"  - 입원: {item['inpatient']}일\n"
+                if item["surgeries"]:     kakao_msg += f"  - 수술: {len(item['surgeries'])}건\n"
+                kakao_msg += "\n"
 
-                    st.markdown(
-                        f'<div class="duty-item">'
-                        f'  <div class="duty-disease">{name}<span class="duty-code">{code}</span></div>'
-                        f'  <div class="duty-meta">📅 {fd} ~ {ld} &nbsp;·&nbsp; 🏥 {hosp}</div>'
-                        f'  <div class="duty-reason">↳ {detail}</div>'
-                        f'  <div class="duty-stats-row">'
-                        f'    <span class="stat-pill">💊 투약 {med}일</span>'
-                        f'    {inpt_pill}{surg_pill}{max_med_pill}'
-                        f'  </div>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
+    # 고지 요약본
+    summary_lines = []
+    for q_title in sorted(summary_reports.keys()):
+        q_short = re.sub(r"^\[.*?\]\s*", "", q_title)
+        names   = [it["name"][:10] for it in summary_reports[q_title]]
+        summary_lines.append(f"• {q_short}: {', '.join(names)}")
+    summary_text_html = "<br>".join(summary_lines) if summary_lines else "고지 항목 없음"
 
-                st.markdown('</div>', unsafe_allow_html=True)
+    safe_msg = kakao_msg.replace("`","\\`").replace("\n","\\n").replace("'","\\'")
 
-        if product_type == "간편심사 (유병자 3-5-5 기준)":
-            st.markdown('<div class="section-head">⚡ 간편심사 3-5-5 항목별 현황</div>', unsafe_allow_html=True)
+    # ── 상단 액션바: 카카오복사 | PDF ── (2컬럼)
+    col_k, col_p = st.columns(2)
 
-            def get_easy_items(keywords):
-                html_parts = []
-                for k, v_list in summary_reports.items():
-                    if any(kw in k for kw in keywords):
-                        for v in v_list:
-                            code_h = f'<span class="easy-code">{v["code"]}</span>' if v["code"] != "-" else ""
-                            extra  = ""
-                            if v["inpatient"] > 0:
-                                dates = v["inpatient_dates"]
-                                r = f"{dates[0]} ~ {dates[-1]}" if len(dates) > 1 else (dates[0] if dates else "")
-                                extra += f'<br><span style="color:#6366f1;font-size:0.73rem;font-weight:600;">🏥 입원 {r} ({v["inpatient"]}일)</span>'
-                            if v["surgeries"]:
-                                dates = v["surgery_dates"]
-                                r = f"{dates[0]} ~ {dates[-1]}" if len(dates) > 1 else (dates[0] if dates else "")
-                                extra += f'<br><span style="color:#dc2626;font-size:0.73rem;font-weight:600;">🔪 수술 {r} ({len(v["surgeries"])}건)</span>'
-                            html_parts.append(f'<div class="easy-item">{code_h} {v["name"][:15]}<span style="color:#9ca3af;font-size:0.73rem;"> ({v["latest_date"]})</span>{extra}</div>')
-                return "".join(html_parts) if html_parts else '<div class="easy-empty">✅ 해당 없음</div>'
-
-            st.markdown(f"""
-            <div class="easy-grid">
-                <div class="easy-box">
-                    <div class="easy-box-head">⏱️ 최근 3개월<br><span style="font-weight:500;font-size:0.72rem;color:#9ca3af;">진단·소견·약품변경</span></div>
-                    {get_easy_items(["1번"])}
-                </div>
-                <div class="easy-box">
-                    <div class="easy-box-head">🏥 최근 10년 입원/수술<br><span style="font-weight:500;font-size:0.72rem;color:#9ca3af;">통원·투약 이력 면제</span></div>
-                    {get_easy_items(["2번"])}
-                </div>
-                <div class="easy-box">
-                    <div class="easy-box-head">⚠️ 최근 5년 6대 질환<br><span style="font-weight:500;font-size:0.72rem;color:#9ca3af;">암·뇌·심장·간경화</span></div>
-                    {get_easy_items(["3번"])}
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-    # ── TAB 2: 원본 데이터 ──
-    with tab2:
-        st.markdown('<div class="section-head">🔍 원본 데이터 <span style="font-weight:400;color:#9ca3af;font-size:0.78rem;">· 빨간 행 = 고지 필요</span></div>', unsafe_allow_html=True)
-        for file_name, f_df in file_dataframes.items():
-            keep     = [idx for idx, row in f_df.iterrows() if not row_is_junk(row)]
-            clean_df = f_df.loc[keep].copy()
-            if clean_df.empty: continue
-            st.markdown(f"**📄 {file_name}**")
-
-            is_flagged_list, code_sort = [], []
-            for _, row in clean_df.iterrows():
-                c  = normalize_code(get_val(row, ["코드"]))
-                n  = get_val(row, ["상병명", "약품명", "진료내역"])
-                rk = c if c else n[:15]
-                is_flagged_list.append(rk in flagged_codes)
-                code_sort.append(c)
-
-            clean_df["_flag"] = is_flagged_list
-            clean_df["_code"] = code_sort
-            sorted_df = (clean_df.sort_values(["_flag","_code"], ascending=[False,True])
-                         .drop(columns=["_flag","_code"]).reset_index(drop=True))
-
-            def highlight(row):
-                c  = normalize_code(get_val(row, ["코드"]))
-                n  = get_val(row, ["상병명","약품명","진료내역"])
-                rk = c if c else n[:15]
-                if rk in flagged_codes:
-                    return ["background-color:#fee2e2;color:#991b1b;font-weight:700;"] * len(row)
-                return [""] * len(row)
-
-            st.dataframe(sorted_df.style.apply(highlight, axis=1), use_container_width=True)
-            st.markdown("---")
-
-    # ── TAB 3: 카톡 전송 & PDF ──
-    with tab3:
-        import streamlit.components.v1 as components
-
-        kakao_msg  = f"📋 [{product_type} 심사 요청]\n"
-        kakao_msg += f"■ 기준일: {today.strftime('%Y-%m-%d')}\n"
-
-        ai_res = st.session_state.get("ai_result", {})
-        if ai_res:
-            kakao_msg += f"■ AI 판정: {ai_res.get('health_verdict','?')} ({ai_res.get('health_reason','')})\n"
-            kakao_msg += f"■ 권장: {ai_res.get('recommend','')}\n\n"
-
-        if not summary_reports:
-            kakao_msg += "✅ 고지 대상 없음. 표준체 진행 가능\n"
-        else:
-            for q_title in sorted(summary_reports.keys()):
-                clean_title = re.sub(r"^\[.*?\]\s*", "", q_title)
-                kakao_msg  += f"▶ {clean_title}\n"
-                for item in summary_reports[q_title]:
-                    hosp = ", ".join(item["hospitals"]) if item["hospitals"] else "알 수 없음"
-                    kakao_msg += f"■ {item['name']} ({item['code']})\n"
-                    kakao_msg += f"  - 기간: {item['first_date']} ~ {item['latest_date']}\n"
-                    kakao_msg += f"  - 병원: {hosp}\n"
-                    kakao_msg += f"  - 사유: {item['detail']}\n"
-                    if item["inpatient"] > 0: kakao_msg += f"  - 입원: {item['inpatient']}일\n"
-                    if item["surgeries"]:     kakao_msg += f"  - 수술: {len(item['surgeries'])}건\n"
-                    kakao_msg += "\n"
-
-        safe_msg = kakao_msg.replace("`","\\`").replace("\n","\\n").replace("'","\\'")
-        copy_html = f"""
+    with col_k:
+        kakao_html = f"""
         <style>
-        .copy-btn {{
-            width:100%; padding:15px 20px;
-            background:linear-gradient(135deg,#6366f1,#8b5cf6);
-            border:none; border-radius:12px;
-            color:#fff; font-weight:700; font-size:0.95rem;
-            cursor:pointer; font-family:sans-serif;
-            transition:all 0.2s; letter-spacing:-.01em;
-            box-shadow:0 4px 12px rgba(99,102,241,0.3);
+        .ab-kakao {{
+            width:100%; padding:10px 8px; border:none; border-radius:10px;
+            font-family:sans-serif; font-size:0.82rem; font-weight:700;
+            cursor:pointer; background:linear-gradient(135deg,#6366f1,#8b5cf6);
+            color:#fff; box-shadow:0 3px 10px rgba(99,102,241,0.25);
+            transition:all 0.18s;
         }}
-        .copy-btn:hover {{ transform:translateY(-2px); box-shadow:0 6px 20px rgba(99,102,241,0.4); }}
-        .copy-btn.copied {{ background:linear-gradient(135deg,#16a34a,#15803d); box-shadow:0 4px 12px rgba(22,163,74,0.3); }}
+        .ab-kakao.copied {{ background:linear-gradient(135deg,#16a34a,#15803d); }}
         </style>
-        <button id="copy-btn" class="copy-btn">💬 카카오톡 전달용 복사하기</button>
+        <button id="kakao-btn" class="ab-kakao" onclick="copyKakao()">💬 카카오톡 복사</button>
         <script>
-        document.getElementById('copy-btn').addEventListener('click', function() {{
+        function copyKakao() {{
             const text = `{safe_msg}`;
-            const btn = this;
+            const btn = document.getElementById('kakao-btn');
             const ta = document.createElement('textarea');
             ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
             document.body.appendChild(ta); ta.select();
             try {{
                 document.execCommand('copy');
-                btn.textContent = '✅ 복사 완료! 카카오톡에 붙여넣기 하세요 (Ctrl+V)';
+                btn.textContent = '✅ 복사 완료!';
                 btn.classList.add('copied');
-                setTimeout(()=>{{ btn.textContent='💬 카카오톡 전달용 복사하기'; btn.classList.remove('copied'); }}, 3000);
-            }} catch(e) {{ console.error(e); }}
+                setTimeout(()=>{{ btn.textContent='💬 카카오톡 복사'; btn.classList.remove('copied'); }}, 2500);
+            }} catch(e) {{}}
             document.body.removeChild(ta);
-        }});
+        }}
         </script>
         """
-        components.html(copy_html, height=72)
+        components.html(kakao_html, height=46)
 
-        with st.expander("📄 메시지 미리보기"):
-            st.text(kakao_msg)
-
-        st.markdown("---")
-
+    with col_p:
+        # PDF 생성
         try:
             from reportlab.lib.pagesizes import A4
-            from reportlab.lib import colors
+            from reportlab.lib import colors as rl_colors
             from reportlab.lib.styles import ParagraphStyle
             from reportlab.lib.units import mm
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
             from reportlab.pdfbase import pdfmetrics
             from reportlab.pdfbase.ttfonts import TTFont
-            import io, urllib.request, tempfile
+            import io as _io, urllib.request as _urlreq, tempfile as _tmpf
 
-            FONT_CACHE_DIR = tempfile.gettempdir()
-            FONT_REG_PATH  = os.path.join(FONT_CACHE_DIR, "NanumGothic.ttf")
-            FONT_BOLD_PATH = os.path.join(FONT_CACHE_DIR, "NanumGothicBold.ttf")
-            NANUM_REG_URL  = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf"
-            NANUM_BOLD_URL = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
-            SYSTEM_PATHS   = [
-                ("/usr/share/fonts/truetype/nanum/NanumGothic.ttf", "/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"),
-                ("/usr/share/fonts/nanum/NanumGothic.ttf", "/usr/share/fonts/nanum/NanumGothicBold.ttf"),
-                ("/Library/Fonts/NanumGothic.ttf", "/Library/Fonts/NanumGothicBold.ttf"),
-            ]
-
-            def _get_font_paths():
-                for reg, bold in SYSTEM_PATHS:
-                    if os.path.exists(reg):
-                        return reg, bold if os.path.exists(bold) else reg
-                if os.path.exists(FONT_REG_PATH):
-                    return FONT_REG_PATH, FONT_BOLD_PATH if os.path.exists(FONT_BOLD_PATH) else FONT_REG_PATH
+            _FC = _tmpf.gettempdir()
+            _FR = os.path.join(_FC,"NanumGothic.ttf"); _FB2 = os.path.join(_FC,"NanumGothicBold.ttf")
+            def _fp():
+                for r,b in [("/usr/share/fonts/truetype/nanum/NanumGothic.ttf","/usr/share/fonts/truetype/nanum/NanumGothicBold.ttf"),("/usr/share/fonts/nanum/NanumGothic.ttf","/usr/share/fonts/nanum/NanumGothicBold.ttf"),("/Library/Fonts/NanumGothic.ttf","/Library/Fonts/NanumGothicBold.ttf")]:
+                    if os.path.exists(r): return r, b if os.path.exists(b) else r
+                if os.path.exists(_FR): return _FR, _FB2 if os.path.exists(_FB2) else _FR
                 try:
-                    urllib.request.urlretrieve(NANUM_REG_URL,  FONT_REG_PATH)
-                    urllib.request.urlretrieve(NANUM_BOLD_URL, FONT_BOLD_PATH)
-                    return FONT_REG_PATH, FONT_BOLD_PATH
-                except Exception:
-                    return None, None
+                    _urlreq.urlretrieve("https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf",_FR)
+                    _urlreq.urlretrieve("https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf",_FB2)
+                    return _FR,_FB2
+                except: return None,None
 
             @st.cache_resource(show_spinner=False)
-            def _register_fonts():
-                reg_path, bold_path = _get_font_paths()
-                if reg_path is None: return "Helvetica", "Helvetica-Bold", False
+            def _rf():
+                rp,bp=_fp()
+                if not rp: return "Helvetica","Helvetica-Bold"
                 try:
-                    if "NanumGothic"     not in pdfmetrics.getRegisteredFontNames(): pdfmetrics.registerFont(TTFont("NanumGothic",     reg_path))
-                    if "NanumGothicBold" not in pdfmetrics.getRegisteredFontNames(): pdfmetrics.registerFont(TTFont("NanumGothicBold", bold_path))
-                    return "NanumGothic", "NanumGothicBold", True
-                except Exception:
-                    return "Helvetica", "Helvetica-Bold", False
+                    if "NanumGothic" not in pdfmetrics.getRegisteredFontNames(): pdfmetrics.registerFont(TTFont("NanumGothic",rp))
+                    if "NanumGothicBold" not in pdfmetrics.getRegisteredFontNames(): pdfmetrics.registerFont(TTFont("NanumGothicBold",bp))
+                    return "NanumGothic","NanumGothicBold"
+                except: return "Helvetica","Helvetica-Bold"
 
-            FONT_NAME, BOLD_FONT, font_ok = _register_fonts()
+            FN2,FB2 = _rf()
 
-            def build_pdf():
-                buf = io.BytesIO()
-                doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=18*mm, rightMargin=18*mm, topMargin=18*mm, bottomMargin=18*mm)
-                purple = colors.HexColor("#6366f1")
-                red    = colors.HexColor("#dc2626")
-                gray   = colors.HexColor("#6b7280")
-                ltgray = colors.HexColor("#f4f6fb")
-                white  = colors.white
-                black  = colors.HexColor("#1a1a2e")
-                green  = colors.HexColor("#16a34a")
-
-                def S(uid, size=10, color=black, font=FONT_NAME, leading=14, before=0, after=4, indent=0):
-                    return ParagraphStyle(uid, fontName=font, fontSize=size, textColor=color, leading=leading, spaceBefore=before, spaceAfter=after, leftIndent=indent, wordWrap='CJK')
-
-                def th(uid): return ParagraphStyle(uid, fontName=BOLD_FONT, fontSize=8, textColor=white, leading=11, wordWrap='CJK')
-                def tv(uid, c=purple): return ParagraphStyle(uid, fontName=BOLD_FONT, fontSize=15, textColor=c, leading=18, alignment=1, wordWrap='CJK')
-
-                story = []
-                story.append(Paragraph("AdvisorHub 스마트 고지 스캐너", S("t",17,purple,BOLD_FONT,21,0,5)))
-                story.append(Paragraph(f"심사유형: {product_type}  |  기준일: {today.strftime('%Y-%m-%d')}  |  고지질환: {flagged_count}개  |  해당질문: {total_q_count}개", S("s",8,gray,FONT_NAME,12,0,10)))
-                story.append(HRFlowable(width="100%", thickness=1, color=purple, spaceAfter=6))
-
-                hdr  = [Paragraph(t, th(f"h{i}")) for i, t in enumerate(["고지 질환 수","해당 질문 수","총 진료일","총 투약일"])]
-                vc   = red if flagged_count > 0 else green
-                vals = [Paragraph(str(flagged_count),tv("v0",vc)), Paragraph(str(total_q_count),tv("v1")), Paragraph(str(total_visit_sum),tv("v2")), Paragraph(str(total_med_sum),tv("v3"))]
-                t2   = Table([hdr,vals], colWidths=["25%"]*4)
-                t2.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),purple),("BACKGROUND",(0,1),(-1,1),ltgray),("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("BOX",(0,0),(-1,-1),0.5,colors.HexColor("#e8ecf4")),("INNERGRID",(0,0),(-1,-1),0.3,colors.HexColor("#e8ecf4")),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]))
-                story.append(t2); story.append(Spacer(1,10))
-                story.append(Paragraph("고지 판정 결과", S("sec",11,purple,BOLD_FONT,15,8,4)))
-
+            def _bp():
+                buf=_io.BytesIO()
+                doc=SimpleDocTemplate(buf,pagesize=A4,leftMargin=18*mm,rightMargin=18*mm,topMargin=18*mm,bottomMargin=18*mm)
+                pu=rl_colors.HexColor("#6366f1"); rd=rl_colors.HexColor("#dc2626"); gy=rl_colors.HexColor("#6b7280")
+                lg=rl_colors.HexColor("#f4f6fb"); wh=rl_colors.white; bk=rl_colors.HexColor("#1a1a2e"); gn=rl_colors.HexColor("#16a34a")
+                def S(uid,sz=10,c=bk,f=FN2,ld=14,bf=0,af=4,ind=0): return ParagraphStyle(uid,fontName=f,fontSize=sz,textColor=c,leading=ld,spaceBefore=bf,spaceAfter=af,leftIndent=ind,wordWrap='CJK')
+                def TH(uid): return ParagraphStyle(uid,fontName=FB2,fontSize=8,textColor=wh,leading=11,wordWrap='CJK')
+                def tv(uid,c=pu): return ParagraphStyle(uid,fontName=FB2,fontSize=14,textColor=c,leading=17,alignment=1,wordWrap='CJK')
+                story=[]
+                story.append(Paragraph("AdvisorHub 알릴의무 고지 리포트",S("t",17,pu,FB2,21,0,4)))
+                story.append(Paragraph(f"심사유형: {product_type}  |  기준일: {today.strftime('%Y-%m-%d')}  |  판정: {v_label}  |  고지질환: {flagged_count}개",S("s",8,gy,FN2,12,0,8)))
+                story.append(HRFlowable(width="100%",thickness=1,color=pu,spaceAfter=5))
+                vc=rd if flagged_count>0 else gn
+                hdr=[Paragraph(t,TH(f"h{i}")) for i,t in enumerate(["AI 판정","고지 질환 수","해당 질문 수","심사 유형"])]
+                vals=[Paragraph(v_label,tv("v0",vc)),Paragraph(str(flagged_count),tv("v1",vc)),Paragraph(str(total_q_count),tv("v2")),Paragraph(product_type[:5],tv("v3"))]
+                t2=Table([hdr,vals],colWidths=["25%"]*4)
+                t2.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),pu),("BACKGROUND",(0,1),(-1,1),lg),("ALIGN",(0,0),(-1,-1),"CENTER"),("VALIGN",(0,0),(-1,-1),"MIDDLE"),("BOX",(0,0),(-1,-1),0.5,rl_colors.HexColor("#e8ecf4")),("INNERGRID",(0,0),(-1,-1),0.3,rl_colors.HexColor("#e8ecf4")),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]))
+                story.append(t2); story.append(Spacer(1,8))
+                story.append(Paragraph("고지 판정 결과",S("sec",11,pu,FB2,15,6,3)))
                 if not summary_reports:
-                    story.append(Paragraph("고지 대상 없음 — 설정 기간 내 알릴 의무 위험 이력이 발견되지 않았습니다.", S("ok",10,green,BOLD_FONT,14,4,4)))
+                    story.append(Paragraph("고지 대상 없음",S("ok",10,gn,FB2,14,4,4)))
                 else:
                     for q_title in sorted(summary_reports.keys()):
-                        story.append(Paragraph(q_title, S("q",10,red,BOLD_FONT,14,8,3)))
-                        col_hdr = [Paragraph(t, th(f"ch{i}")) for i,t in enumerate(["질병명(코드)","기간","진료/투약","매칭사유"])]
-                        rows = [col_hdr]
+                        story.append(Paragraph(q_title,S("q",10,rd,FB2,14,6,2)))
+                        rows=[[Paragraph(t,TH(f"ch{i}")) for i,t in enumerate(["질병명(코드)","기간","입원/수술","판단사유"])]]
                         for item in summary_reports[q_title]:
-                            rows.append([
-                                Paragraph(f"{(item['name'][:25] or '(병명미상)').replace('&','and')}\n({item['code']})", S(f"b{id(item)}",8,black,FONT_NAME,12,0,2,4)),
-                                Paragraph(f"{item['first_date']}\n~ {item['latest_date']}", S(f"d{id(item)}",8,black,FONT_NAME,12,0,2,4)),
-                                Paragraph(f"투약 {item['total_med']}일\n입원 {item['inpatient']}일", S(f"m{id(item)}",8,black,FONT_NAME,12,0,2,4)),
-                                Paragraph(item['detail'][:60].replace('&','and'), S(f"r{id(item)}",8,black,FONT_NAME,12,0,2,4)),
-                            ])
-                        t3 = Table(rows, colWidths=["28%","20%","17%","35%"])
-                        t3.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),red),("ROWBACKGROUNDS",(0,1),(-1,-1),[white,colors.HexColor("#fff5f5")]),("BOX",(0,0),(-1,-1),0.4,colors.HexColor("#fecaca")),("INNERGRID",(0,0),(-1,-1),0.3,colors.HexColor("#fee2e2")),("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5)]))
-                        story.append(t3); story.append(Spacer(1,6))
-
-                story.append(HRFlowable(width="100%", thickness=0.4, color=colors.HexColor("#e8ecf4"), spaceBefore=10))
-                story.append(Paragraph(f"본 리포트는 AdvisorHub AI 엔진이 자동 생성한 참고자료이며, 최종 심사 판단은 언더라이터의 전문적 검토를 따릅니다.  |  생성: {datetime.now().strftime('%Y-%m-%d %H:%M')}", S("foot",7,gray,FONT_NAME,10,0,0)))
+                            inpt=f"입원 {item['inpatient']}일" if item['inpatient']>0 else ""
+                            surg=f"수술 {len(item['surgeries'])}건" if item['surgeries'] else ""
+                            med=f"투약 {item['total_med']}일" if item['total_med']>0 else ""
+                            etc=" / ".join(filter(None,[inpt,surg,med])) or "-"
+                            rows.append([Paragraph(f"{(item['name'][:20] or '(병명미상)').replace('&','and')}\n({item['code']})",S(f"b{id(item)}",8,bk,FN2,12,0,2,4)),Paragraph(f"{item['first_date']}\n~ {item['latest_date']}",S(f"d{id(item)}",8,bk,FN2,12,0,2,4)),Paragraph(etc,S(f"m{id(item)}",8,bk,FN2,12,0,2,4)),Paragraph(item['detail'][:55].replace('&','and'),S(f"r{id(item)}",8,bk,FN2,12,0,2,4))])
+                        t3=Table(rows,colWidths=["28%","20%","17%","35%"])
+                        t3.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),rd),("ROWBACKGROUNDS",(0,1),(-1,-1),[wh,rl_colors.HexColor("#fff5f5")]),("BOX",(0,0),(-1,-1),0.4,rl_colors.HexColor("#fecaca")),("INNERGRID",(0,0),(-1,-1),0.3,rl_colors.HexColor("#fee2e2")),("VALIGN",(0,0),(-1,-1),"TOP"),("TOPPADDING",(0,0),(-1,-1),5),("BOTTOMPADDING",(0,0),(-1,-1),5),("LEFTPADDING",(0,0),(-1,-1),5),("RIGHTPADDING",(0,0),(-1,-1),5)]))
+                        story.append(t3); story.append(Spacer(1,5))
+                story.append(HRFlowable(width="100%",thickness=0.4,color=rl_colors.HexColor("#e8ecf4"),spaceBefore=8))
+                story.append(Paragraph(f"AdvisorHub AI 자동 생성 참고자료 | 최종 심사는 언더라이터 검토를 따릅니다. | 생성: {datetime.now().strftime('%Y-%m-%d %H:%M')}",S("foot",7,gy,FN2,10,0,0)))
                 doc.build(story)
                 return buf.getvalue()
 
-            pdf_bytes = build_pdf()
-            st.download_button(
-                label="⬇️  PDF 리포트 다운로드",
-                data=pdf_bytes,
+            pdf_bytes = _bp()
+            st.download_button("⬇️ PDF 다운로드", data=pdf_bytes,
                 file_name=f"AdvisorHub_고지리포트_{today.strftime('%Y%m%d')}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-
+                mime="application/pdf", use_container_width=True)
         except ImportError:
-            st.warning("PDF 생성에는 `reportlab` 라이브러리가 필요합니다.")
+            st.caption("PDF: reportlab 필요")
         except Exception as e:
-            st.error(f"PDF 생성 중 오류: {e}")
+            st.caption(f"PDF 오류: {e}")
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+    # ── 고지사항 요약 3-카드 그리드 ──
+    st.markdown('<div class="section-head">📋 고지사항 요약</div>', unsafe_allow_html=True)
+
+    if product_type == "건강체/표준체 (일반심사)":
+        summary_cards = [
+            {"title": "3개월", "sub": "이내 의료행위", "keys": ["[1번질문]", "[2번질문]"]},
+            {"title": "1년", "sub": "이내 추가검사", "keys": ["[3번질문]"]},
+            {"title": "10년", "sub": "이내 입원/수술", "keys": ["[4번질문]"]},
+            {"title": "5년", "sub": "이내 중증질환", "keys": ["[5번질문]"]},
+        ]
+    else:
+        summary_cards = [
+            {"title": "3개월", "sub": "이내 진단/소견", "keys": ["[간편1번질문]"]},
+            {"title": "10년 입원 수술", "sub": "이내 입원/수술", "keys": ["[간편2번질문]"]},
+            {"title": "5년내 6대 중대질환", "sub": "중증질환 확정진단", "keys": ["[간편3번질문]"]},
+        ]
+
+    def _card_items_html(items_in_card):
+        if not items_in_card:
+            return '<div class="easy-empty">✅ 해당 없음</div>'
+        parts = []
+        for v in items_in_card:
+            code_h = f'<span class="easy-code">{v["code"]}</span>' if v["code"] != "-" else ""
+            extra  = ""
+            if v["inpatient"] > 0:
+                dates = v["inpatient_dates"]
+                r = f"{dates[0]} ~ {dates[-1]}" if len(dates) > 1 else (dates[0] if dates else "")
+                extra += f'<br><span style="color:#6366f1;font-size:0.73rem;font-weight:600;">🏥 입원 {r} ({v["inpatient"]}일)</span>'
+            if v["surgeries"]:
+                dates = v["surgery_dates"]
+                r = f"{dates[0]} ~ {dates[-1]}" if len(dates) > 1 else (dates[0] if dates else "")
+                extra += f'<br><span style="color:#dc2626;font-size:0.73rem;font-weight:600;">🔪 수술 {r} ({len(v["surgeries"])}건)</span>'
+            parts.append(f'<div class="easy-item">{code_h} {v["name"][:15]}<span style="color:#9ca3af;font-size:0.73rem;"> ({v["latest_date"]})</span>{extra}</div>')
+        return "".join(parts)
+
+    card_cols = st.columns(4 if product_type == "건강체/표준체 (일반심사)" else 3)
+    for col, card in zip(card_cols, summary_cards):
+        items_in_card = []
+        for k, v_list in summary_reports.items():
+            if any(key in k for key in card["keys"]):
+                items_in_card.extend(v_list)
+        cnt = len(items_in_card)
+        bg = "linear-gradient(135deg,#3b82f6,#2563eb)" if cnt == 0 else "linear-gradient(135deg,#ef4444,#dc2626)"
+        with col:
+            st.markdown(f"""
+            <div class="easy-box" style="border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.10);">
+                <div style="background:{bg};padding:12px 14px;">
+                    <div style="font-size:1rem;font-weight:800;color:#fff;line-height:1.2;">{card['title']}</div>
+                    <div style="font-size:0.68rem;color:rgba(255,255,255,0.72);margin-top:1px;">{card['sub']}</div>
+                    <div style="font-size:1.8rem;font-weight:800;color:#fff;margin-top:4px;line-height:1;">{cnt}</div>
+                </div>
+                {_card_items_html(items_in_card)}
+            </div>
+            """, unsafe_allow_html=True)
+
+    # ── 직장/항문 관련 병력 → 실손 전용 고지 안내 ──
+    ANAL_RECTAL_CODES = ("K60", "K61", "K62", "K63", "K57", "K59")
+    ANAL_RECTAL_NAMES = ("항문", "직장", "치루", "치핵", "치질", "항문관", "항문루", "항문직장", "치열")
+    anal_rectal_items = []
+    for q_title, items in summary_reports.items():
+        for item in items:
+            code = item.get("code", "")
+            name = item.get("name", "")
+            if any(code.startswith(c) for c in ANAL_RECTAL_CODES) or any(k in name for k in ANAL_RECTAL_NAMES):
+                anal_rectal_items.append(item)
+    # session_state에 저장된 전체 질환 목록에서도 확인
+    if not anal_rectal_items:
+        for q_title, items in summary_reports.items():
+            pass  # 이미 위에서 처리
+    if anal_rectal_items:
+        names_str = ", ".join(dict.fromkeys(i["name"][:12] for i in anal_rectal_items))
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,#fffbeb,#fefce8);border:1.5px solid #fde68a;
+                    border-radius:12px;padding:12px 16px;margin-top:6px;margin-bottom:4px;">
+            <div style="font-size:0.72rem;font-weight:700;letter-spacing:.06em;color:#92400e;margin-bottom:4px;">
+                🩺 직장/항문 관련 병력 안내
+            </div>
+            <div style="font-size:0.83rem;font-weight:600;color:#78350f;">
+                {names_str}
+            </div>
+            <div style="font-size:0.77rem;color:#92400e;margin-top:4px;">
+                ※ 직장·항문 관련 질환은 <b>실손의료보험 가입 시에만</b> 고지 대상입니다.<br>
+                일반 사망/암/건강보험 설계 시에는 고지 불필요 — 설계 매니저에게 실손 포함 여부를 확인하세요.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if product_type == "건강체/표준체 (일반심사)" and flagged_count >= 5:
+        st.markdown(f"""
+        <div class="switch-banner" style="margin-top:10px;">
+            🔄 고지 대상 질환 <b>{flagged_count}개</b> — 심사 기준을 간편심사로 변경하면 청약 가능성이 높아질 수 있습니다.
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 처방 종료일 배너
+    if prescription_end_details:
+        active_prescs    = [p for p in prescription_end_details if not p["already_ok"]]
+        completed_prescs = [p for p in prescription_end_details if p["already_ok"]]
+        if active_prescs:
+            latest_avail = max(active_prescs, key=lambda x: x["available"])
+            rows_html = "".join([
+                f'<tr><td style="padding:4px 8px;font-size:0.79rem;">{p["name"]}</td>'
+                f'<td style="padding:4px 8px;font-size:0.79rem;">{p["presc_date"]}</td>'
+                f'<td style="padding:4px 8px;font-size:0.79rem;">{p["m_days"]}일</td>'
+                f'<td style="padding:4px 8px;font-size:0.79rem;font-weight:700;color:#dc2626;">{p["end_date"]}</td>'
+                f'<td style="padding:4px 8px;font-size:0.79rem;font-weight:700;color:#6366f1;">{p["available"]}</td></tr>'
+                for p in active_prescs
+            ])
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#fef2f2,#fff);border:1.5px solid #fca5a5;
+                        border-radius:12px;padding:14px 16px;margin-bottom:10px;">
+                <div style="font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+                            color:#dc2626;margin-bottom:6px;">💊 복약 중 — 처방 종료 후 가입 가능</div>
+                <div style="font-size:0.88rem;font-weight:800;color:#991b1b;margin-bottom:10px;">
+                    최소 가입 가능 날짜: <span style="color:#6366f1;">{latest_avail["available"]}</span>
+                </div>
+                <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden;">
+                    <tr style="background:#fef2f2;font-size:0.72rem;font-weight:700;color:#6b7280;">
+                        <td style="padding:5px 8px;">질환명</td><td style="padding:5px 8px;">처방일</td>
+                        <td style="padding:5px 8px;">투약일수</td><td style="padding:5px 8px;">복약 종료일</td>
+                        <td style="padding:5px 8px;">가입 가능일</td>
+                    </tr>
+                    {rows_html}
+                </table>
+                <div style="margin-top:8px;font-size:0.74rem;color:#7f1d1d;">
+                    ※ 처방일 + 투약일수 = 복약 종료일. 다음날부터 해당 약 관련 Q1 면제
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        elif completed_prescs:
+            st.markdown(f"""
+            <div style="background:linear-gradient(135deg,#f0fdf4,#fff);border:1px solid #86efac;
+                        border-radius:12px;padding:10px 16px;margin-bottom:10px;">
+                <div style="font-size:0.8rem;font-weight:700;color:#15803d;">
+                    ✅ 3개월 이내 처방 {len(completed_prescs)}건 — 모두 복약 완료 (투약 관련 Q1 면제 가능)
+                </div>
+                <div style="font-size:0.75rem;color:#166534;margin-top:3px;">
+                    단, 진단/소견 자체가 3개월 이내이면 Q1은 별도 판단됩니다.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
+
+    # ── 고지 판정 리포트 (한 페이지) ──
+    import html as _html
+
+    if not summary_reports:
+        st.markdown("""
+        <div class="clean-card">
+            <span style="font-size:2rem;">✅</span>
+            <div>
+                <div>고지 대상 없음 — 표준체 심사 진행 가능</div>
+                <div style="font-size:0.8rem;font-weight:400;color:#166534;margin-top:4px;">설정 기간 내 알릴의무 해당 이력이 발견되지 않았습니다.</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="warn-banner">
+            ⚠️ 아래 항목은 AI가 분석한 <b>필수 고지 대상</b>입니다. 청약서 해당 번호에 정확히 기재하세요.
+        </div>
+        """, unsafe_allow_html=True)
+
+        if product_type == "간편심사 (유병자 3-5-5 기준)" and drug_change_summary:
+            if ai_res.get("drug_change_hit"):
+                drug_reason = ai_res.get("drug_change_reason", "")
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#fef2f2,#fee2e2);border:1.5px solid #fca5a5;
+                            border-radius:12px;padding:12px 16px;margin-bottom:12px;">
+                    <div style="font-size:0.7rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#dc2626;margin-bottom:4px;">
+                        💊 처방약 변경 감지 — 간편심사 Q1 해당
+                    </div>
+                    <div style="font-size:0.84rem;font-weight:700;color:#991b1b;margin-bottom:4px;">
+                        3개월 이내 처방약 변경/추가 → 가입 불가
+                    </div>
+                    <div style="font-size:0.79rem;color:#7f1d1d;line-height:1.7;">{drug_reason}</div>
+                    <div style="margin-top:7px;font-size:0.73rem;color:#991b1b;background:#fff5f5;border-radius:8px;padding:6px 10px;">
+                        ✅ 가입가능: 동일 약 지속 / 용량 감소 / 약 중단 &nbsp;|&nbsp; ❌ 가입불가: 약 종류 변경 / 새 약 추가 / 용량 증가
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        for q_title in sorted(summary_reports.keys()):
+            items   = summary_reports[q_title]
+            q_badge = re.sub(r"\].*", "]", q_title).strip("[]").strip()
+            q_label = re.sub(r"^\[.*?\]\s*", "", q_title)
+            full_header = f"{q_badge} {q_label}"
+            st.markdown(
+                f'<div class="duty-card"><div class="duty-card-head">'
+                f'<span class="duty-q-title">{_html.escape(full_header)}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            for item in items:
+                hosp      = _html.escape(", ".join(item["hospitals"])[:25] if item["hospitals"] else "기록 없음")
+                name      = _html.escape(item["name"][:30] or "(병명 미상)")
+                code      = _html.escape(item["code"])
+                fd        = _html.escape(item["first_date"])
+                ld        = _html.escape(item["latest_date"])
+                detail    = _html.escape(item["detail"])
+                inpatient = item["inpatient"]
+                n_surg    = len(item["surgeries"])
+                max_med   = item["max_single_med"]
+                med       = item["total_med"]
+                pills = ""
+                if med > 0:       pills += f'<span class="stat-pill">💊 투약 {med}일</span>'
+                if inpatient > 0: pills += f'<span class="stat-pill red">🏥 입원 {inpatient}일</span>'
+                if n_surg > 0:    pills += f'<span class="stat-pill red">🔪 수술 {n_surg}건</span>'
+                if max_med >= 30: pills += f'<span class="stat-pill purple">📋 최대처방 {max_med}일</span>'
+                st.markdown(
+                    f'<div class="duty-item">'
+                    f'  <div class="duty-disease">{name}<span class="duty-code">{code}</span></div>'
+                    f'  <div class="duty-meta">📅 {fd} ~ {ld} &nbsp;·&nbsp; 🏥 {hosp}</div>'
+                    f'  <div class="duty-reason">↳ {detail}</div>'
+                    f'  <div class="duty-stats-row">{pills}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
+    # ── 하단 카카오 전달 미리보기 ──
+    st.markdown('<div class="section-head" style="margin-top:18px;">💬 카카오톡 전달 메시지 미리보기</div>', unsafe_allow_html=True)
+    with st.expander("메시지 내용 펼치기"):
+        st.text(kakao_msg)
