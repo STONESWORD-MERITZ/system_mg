@@ -1085,7 +1085,7 @@ elif menu == "disclosure":
 
             filtered_lines.append(line + " [" + ",".join(tags) + "]")
 
-        raw_text = "\n".join(filtered_lines[:400])
+        raw_text = "\n".join(filtered_lines[:800])
         # 약 변경 감지 결과 추가
         if drug_change_text:
             raw_text = drug_change_text + "\n" + raw_text
