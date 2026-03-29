@@ -890,8 +890,11 @@ elif menu == "disclosure":
             # 입원 여부 압축 표시
             inpatient_flag = "입원" if "입원" in in_out else ""
 
+            # NHIS 날짜(YYYY.MM.DD)를 YYYY-MM-DD로 정규화 (태그 파싱 호환)
+            line_date = parse_date(date_str) or date_str
+
             raw_text_lines.append(
-                f"{date_str} [{ftype}] {code_str} {name_str[:20]} {hospital[:10]}"
+                f"{line_date} [{ftype}] {code_str} {name_str[:20]} {hospital[:10]}"
                 + (f" 투약{m_days}일" if m_days and m_days != "0" else "")
                 + (f" 진료비{cost_raw}" if cost_raw else "")
                 + (f" {inpatient_flag}" if inpatient_flag else "")
