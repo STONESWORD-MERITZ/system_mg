@@ -546,26 +546,11 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
 
 
 # ==========================================
-# 상단 네비게이션 바
+# 기능 페이지 — 홈 복귀 버튼
 # ==========================================
-_m = st.session_state.menu
-st.markdown('<div id="surit-nav"></div>', unsafe_allow_html=True)
-_nc0, _nc1, _nc2, _nsp = st.columns([1.4, 2.0, 3.0, 8.6])
-with _nc0:
-    if st.button("SURIT", key="nav_home", use_container_width=True):
+if st.session_state.menu != "home":
+    if st.button("← 홈으로", key="back_home"):
         st.session_state.menu = "home"
-        st.rerun()
-with _nc1:
-    if st.button("알릴의무 필터", key="nav_disclosure",
-                 use_container_width=True,
-                 type="primary" if _m == "disclosure" else "secondary"):
-        st.session_state.menu = "disclosure"
-        st.rerun()
-with _nc2:
-    if st.button("보장분석 비포&에프터", key="nav_before_after",
-                 use_container_width=True,
-                 type="primary" if _m == "before_after" else "secondary"):
-        st.session_state.menu = "before_after"
         st.rerun()
 
 # ==========================================
@@ -637,117 +622,163 @@ if menu == "home":
     html, body, .stApp, [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main, .block-container {
         background: #070f1f !important;
+        padding-top: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── 히어로 영역 (배지 · 로고 · 헤드라인 · 서브) ──
-    st.markdown("""
-    <div class="home-wrap">
-      <div class="home-inner">
-        <div class="home-badge">설계사 전용 AI 플랫폼</div>
-        <div class="home-logo">SUR<span class="logo-it">IT</span></div>
-        <div class="home-headline">
-          보험의 확신,<br><span class="hl">슈릿</span>에서 쉽고 간편하게.
-        </div>
-        <div class="home-sub">
-          심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
-          기존·신규 보장을 한눈에 비교해 드립니다.
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── 카드 섹션 — components.html로 iframe 내 onclick 작동 ──
+    # 홈 전체를 단일 components.html로 — 히어로 + 카드 연속 배치
     components.html("""
     <!DOCTYPE html>
     <html>
     <head>
     <meta charset="utf-8">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-        background: #070f1f;
         font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow-x: hidden;
+        position: relative;
+        background:
+            radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.16) 0%, transparent 55%),
+            radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
+            linear-gradient(160deg, #070f1f 0%, #0d1f3c 30%, #112a52 60%, #0a1628 100%);
+    }
+    /* 도트 그리드 */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+        background-size: 36px 36px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .wrap {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 0 24px 32px;
-    }
-    .divider {
-        width: 40px; height: 2px;
-        background: rgba(96,165,250,0.4);
-        border-radius: 2px;
-        margin: 0 auto 36px;
-    }
-    .cards {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 18px;
+        text-align: center;
         width: 100%;
-        max-width: 720px;
+        max-width: 820px;
+        padding: 60px 24px 48px;
     }
-    .card {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.14);
-        border-radius: 18px;
-        padding: 28px 26px 24px;
-        cursor: pointer;
-        transition: all 0.22s ease;
-        text-decoration: none;
-        display: block;
-        user-select: none;
-    }
-    .card:hover {
-        background: rgba(255,255,255,0.11);
-        border-color: rgba(96,165,250,0.55);
-        transform: translateY(-3px);
-        box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(96,165,250,0.2);
-    }
-    .card:active { transform: translateY(-1px); }
-    .card-label {
-        font-size: 0.63rem;
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(96,165,250,0.15);
+        color: #93c5fd;
+        font-size: 0.68rem;
         font-weight: 700;
         letter-spacing: .1em;
         text-transform: uppercase;
+        padding: 5px 16px;
+        border-radius: 100px;
+        border: 1px solid rgba(96,165,250,0.35);
+        margin-bottom: 22px;
+    }
+    .logo {
+        font-size: 1.8rem;
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: -.04em;
+        margin-bottom: 18px;
+    }
+    .logo .it { color: #60a5fa; }
+    .headline {
+        font-size: 3.0rem;
+        font-weight: 900;
+        color: #fff;
+        letter-spacing: -.04em;
+        line-height: 1.2;
+        margin-bottom: 16px;
+        word-break: keep-all;
+    }
+    .headline .hl { color: #60a5fa; }
+    .sub {
+        font-size: 0.96rem;
+        color: rgba(255,255,255,0.52);
+        line-height: 1.8;
+        margin-bottom: 40px;
+        word-break: keep-all;
+    }
+    /* ─ 카드 ─ */
+    .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        width: 100%;
+        max-width: 700px;
+        margin-bottom: 40px;
+    }
+    .card {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 18px;
+        padding: 28px 24px 22px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: left;
+        user-select: none;
+    }
+    .card:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(96,165,250,0.5);
+        transform: translateY(-4px);
+        box-shadow: 0 14px 36px rgba(0,0,0,0.45);
+    }
+    .card:active { transform: translateY(-1px); }
+    .card-label {
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: .12em;
+        text-transform: uppercase;
         color: #60a5fa;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
     }
     .card-title {
-        font-size: 1.05rem;
+        font-size: 1rem;
         font-weight: 800;
-        color: #ffffff;
+        color: #fff;
         margin-bottom: 10px;
-        letter-spacing: -.025em;
+        letter-spacing: -.02em;
         line-height: 1.3;
     }
     .card-desc {
-        font-size: 0.8rem;
-        color: rgba(255,255,255,0.52);
-        line-height: 1.7;
-        margin-bottom: 22px;
+        font-size: 0.79rem;
+        color: rgba(255,255,255,0.48);
+        line-height: 1.65;
+        margin-bottom: 20px;
         word-break: keep-all;
     }
     .card-arrow {
-        font-size: 0.78rem;
+        font-size: 0.76rem;
         font-weight: 700;
         color: #60a5fa;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
     }
     .footer {
-        margin-top: 36px;
-        font-size: 0.7rem;
-        color: rgba(255,255,255,0.2);
-        letter-spacing: .04em;
-        text-align: center;
+        font-size: 0.66rem;
+        color: rgba(255,255,255,0.18);
+        letter-spacing: .05em;
     }
     </style>
     </head>
     <body>
-      <div class="divider"></div>
+    <div class="wrap">
+      <div class="badge">설계사 전용 AI 플랫폼</div>
+      <div class="logo">SUR<span class="it">IT</span></div>
+      <div class="headline">보험의 확신,<br><span class="hl">슈릿</span>에서 쉽고 간편하게.</div>
+      <div class="sub">
+        심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
+        기존·신규 보장을 한눈에 비교해 드립니다.
+      </div>
       <div class="cards">
         <div class="card" onclick="window.parent.location.href='?goto=disclosure'">
           <div class="card-label">Feature 01</div>
@@ -763,9 +794,10 @@ if menu == "home":
         </div>
       </div>
       <div class="footer">SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini</div>
+    </div>
     </body>
     </html>
-    """, height=300)
+    """, height=760, scrolling=False)
 
 
 # ══════════════════════════════════════════
