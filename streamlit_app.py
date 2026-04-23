@@ -29,7 +29,7 @@ st.set_page_config(
 )
 
 if "menu" not in st.session_state:
-    st.session_state.menu = "disclosure"
+    st.session_state.menu = "home"
 
 # ==========================================
 # CSS — ConnectionLabs 스타일
@@ -366,6 +366,145 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
     .ba-grid, .easy-grid { grid-template-columns: 1fr; }
     .summary-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* ══════════════════════════════
+   홈 히어로 섹션
+══════════════════════════════ */
+.home-wrap {
+    min-height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 24px 60px;
+    background: #ffffff;
+}
+.home-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #eff6ff;
+    color: #3b82f6 !important;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    padding: 5px 14px;
+    border-radius: 100px;
+    border: 1px solid #bfdbfe;
+    margin-bottom: 28px;
+}
+.home-logo {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: #111827 !important;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-bottom: 20px;
+    text-align: center;
+}
+.home-logo span { color: #3b82f6 !important; }
+.home-headline {
+    font-size: 3.2rem;
+    font-weight: 900;
+    color: #111827 !important;
+    letter-spacing: -.04em;
+    line-height: 1.15;
+    text-align: center;
+    margin-bottom: 20px;
+    word-break: keep-all;
+}
+.home-headline .hl { color: #3b82f6 !important; }
+.home-sub {
+    font-size: 1.05rem;
+    color: #6b7280 !important;
+    text-align: center;
+    line-height: 1.7;
+    margin-bottom: 52px;
+    word-break: keep-all;
+}
+.home-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+    max-width: 760px;
+    margin-bottom: 48px;
+}
+.home-card {
+    background: #ffffff;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 32px 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    text-align: left;
+}
+.home-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 8px 24px rgba(59,130,246,0.12);
+    transform: translateY(-2px);
+}
+.home-card-icon {
+    font-size: 2rem;
+    margin-bottom: 16px;
+    display: block;
+}
+.home-card-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #111827 !important;
+    margin-bottom: 8px;
+    letter-spacing: -.02em;
+}
+.home-card-desc {
+    font-size: 0.82rem;
+    color: #6b7280 !important;
+    line-height: 1.6;
+    word-break: keep-all;
+}
+.home-card-arrow {
+    margin-top: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #3b82f6 !important;
+}
+.home-footer {
+    font-size: 0.75rem;
+    color: #d1d5db !important;
+    text-align: center;
+    letter-spacing: .02em;
+}
+
+/* ── 홈 카드 CTA 버튼 ── */
+button[data-testid="baseButton-secondary"][kind="secondary"] {
+    background: #f8faff !important;
+    border: 1.5px solid #bfdbfe !important;
+    border-radius: 10px !important;
+    color: #3b82f6 !important;
+    font-weight: 700 !important;
+    font-size: 0.84rem !important;
+    padding: 10px 0 !important;
+    box-shadow: none !important;
+    transition: all 0.15s !important;
+}
+
+/* ── 네비 로고 버튼 ── */
+.nav-logo-btn button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    color: #111827 !important;
+    font-size: 1rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -.02em !important;
+    height: auto !important;
+}
+.nav-logo-btn button:hover { opacity: 0.7 !important; }
+
+/* ── 홈일 때 배경 흰색 ── */
+.page-home .stApp { background: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -373,22 +512,25 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
 # ==========================================
 # 상단 네비게이션 바
 # ==========================================
+_m = st.session_state.menu
 st.markdown('<div class="topnav">', unsafe_allow_html=True)
-col_logo, col_nav1, col_nav2, col_spacer = st.columns([2, 2, 3, 8])
-with col_logo:
-    st.markdown("""
-    <div class="nav-logo">SURIT<span class="nav-logo-sub">설계사에게 확신을 주다.</span></div>
-    """, unsafe_allow_html=True)
-with col_nav1:
+_nc0, _nc1, _nc2, _nc3, _nsp = st.columns([1.6, 2.2, 3, 2.2, 6])
+with _nc0:
+    st.markdown('<div class="nav-logo-btn">', unsafe_allow_html=True)
+    if st.button("SURIT", key="nav_home", use_container_width=True):
+        st.session_state.menu = "home"
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+with _nc1:
     if st.button("🔍  알릴의무 필터", key="nav_disclosure",
                  use_container_width=True,
-                 type="primary" if st.session_state.menu == "disclosure" else "secondary"):
+                 type="primary" if _m == "disclosure" else "secondary"):
         st.session_state.menu = "disclosure"
         st.rerun()
-with col_nav2:
+with _nc2:
     if st.button("🔄  보장분석 비포&에프터", key="nav_before_after",
                  use_container_width=True,
-                 type="primary" if st.session_state.menu == "before_after" else "secondary"):
+                 type="primary" if _m == "before_after" else "secondary"):
         st.session_state.menu = "before_after"
         st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
@@ -447,9 +589,74 @@ def row_is_junk(row) -> bool:
 # 페이지 라우터
 # ==========================================
 menu = st.session_state.menu
-if menu not in ("before_after", "disclosure"):
-    st.session_state.menu = "disclosure"
-    menu = "disclosure"
+if menu not in ("home", "before_after", "disclosure"):
+    st.session_state.menu = "home"
+    menu = "home"
+
+
+# ══════════════════════════════════════════
+# PAGE: 홈 (랜딩 페이지)
+# ══════════════════════════════════════════
+if menu == "home":
+    st.markdown("""
+    <div class="home-wrap">
+        <div class="home-badge">🛡️ 설계사 전용 AI 플랫폼</div>
+        <div class="home-logo">SUR<span>IT</span></div>
+        <div class="home-headline">
+            보험의 확신,<br>
+            <span class="hl">슈릿</span>에서 쉽고 간편하게.
+        </div>
+        <div class="home-sub">
+            심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
+            기존·신규 보장을 한눈에 비교해 드립니다.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_l, col_c, col_r = st.columns([1, 4, 1])
+    with col_c:
+        card_col1, card_col2 = st.columns(2)
+        with card_col1:
+            st.markdown("""
+            <div class="home-card">
+                <span class="home-card-icon">🔍</span>
+                <div class="home-card-title">알릴의무 필터</div>
+                <div class="home-card-desc">
+                    심평원 진료 PDF를 업로드하면<br>
+                    AI가 고지 항목을 자동으로 추출합니다.<br>
+                    건강체·간편심사 기준 모두 지원합니다.
+                </div>
+                <div class="home-card-arrow">시작하기 →</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("알릴의무 필터 시작", key="home_to_disclosure", use_container_width=True):
+                st.session_state.menu = "disclosure"
+                st.rerun()
+
+        with card_col2:
+            st.markdown("""
+            <div class="home-card">
+                <span class="home-card-icon">🔄</span>
+                <div class="home-card-title">보장분석 비포&amp;에프터</div>
+                <div class="home-card-desc">
+                    기존 보장내역과 신규 제안서를 비교해<br>
+                    리모델링 근거를 시각적으로 제시합니다.<br>
+                    고객 설득에 바로 활용 가능합니다.
+                </div>
+                <div class="home-card-arrow">시작하기 →</div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("보장분석 시작", key="home_to_before_after", use_container_width=True):
+                st.session_state.menu = "before_after"
+                st.rerun()
+
+    st.markdown("""
+    <div style="text-align:center;margin-top:8px;padding-bottom:40px;">
+        <span style="font-size:0.72rem;color:#d1d5db;">
+            SURIT · 설계사에게 확신을 주다 · Powered by Google Gemini
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════
