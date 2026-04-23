@@ -623,204 +623,127 @@ if menu not in ("home", "before_after", "disclosure"):
 # PAGE: 홈 (랜딩 페이지)
 # ══════════════════════════════════════════
 if menu == "home":
-    # 홈 전용 — stApp 전체 다크 + 여백 제거 + iframe 전체 확장
+    # ── 홈 전용 다크 CSS ──
     st.markdown("""
     <style>
-    html, body,
-    .stApp,
+    html, body, .stApp,
     [data-testid="stAppViewContainer"],
-    [data-testid="stMain"],
-    .main,
-    .block-container,
+    [data-testid="stMain"], .main,
     [data-testid="stMainBlockContainer"],
-    section.main > div { background: #070f1f !important; }
-
-    /* 홈일 때 블록 패딩 완전 제거 */
-    [data-testid="stMainBlockContainer"],
-    .main .block-container { padding: 0 !important; margin: 0 !important; }
-
-    /* iframe 경계 없애기 */
-    [data-testid="stMainBlockContainer"] iframe,
-    .element-container iframe {
-        border: none !important;
-        display: block !important;
-        margin: 0 !important;
-        width: 100% !important;
+    section.main > div {
+        background: linear-gradient(160deg,#070f1f 0%,#0d1f3c 35%,#112a52 65%,#070f1f 100%) !important;
+    }
+    [data-testid="stAppViewContainer"]::before {
+        content:'';position:fixed;inset:0;
+        background-image:radial-gradient(circle,rgba(255,255,255,0.04) 1px,transparent 1px);
+        background-size:36px 36px;pointer-events:none;z-index:0;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.14) !important;
+        border-radius: 18px !important;
+        transition: all 0.2s ease !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"]:hover {
+        background: rgba(255,255,255,0.10) !important;
+        border-color: rgba(96,165,250,0.5) !important;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.4) !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] p,
+    [data-testid="stVerticalBlockBorderWrapper"] div { color: rgba(255,255,255,0.9) !important; }
+    [data-testid="stVerticalBlockBorderWrapper"] .stButton button {
+        background: transparent !important;
+        border: 1px solid rgba(96,165,250,0.35) !important;
+        border-radius: 10px !important;
+        color: #60a5fa !important;
+        font-weight: 700 !important;
+        font-size: 0.84rem !important;
+        box-shadow: none !important;
+        transition: all 0.15s !important;
+    }
+    [data-testid="stVerticalBlockBorderWrapper"] .stButton button:hover {
+        background: rgba(96,165,250,0.1) !important;
+        border-color: #60a5fa !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # 홈 전체를 단일 components.html로 — 히어로 + 카드 연속 배치
-    components.html("""
-    <!DOCTYPE html>
-    <html>
-    <head>
-    <meta charset="utf-8">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-        font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow-x: hidden;
-        position: relative;
-        background:
-            radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.16) 0%, transparent 55%),
-            radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.12) 0%, transparent 50%),
-            linear-gradient(160deg, #070f1f 0%, #0d1f3c 30%, #112a52 60%, #0a1628 100%);
-    }
-    /* 도트 그리드 */
-    body::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
-        background-size: 36px 36px;
-        pointer-events: none;
-        z-index: 0;
-    }
-    .wrap {
-        position: relative;
-        z-index: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        width: 100%;
-        max-width: 820px;
-        padding: 60px 24px 48px;
-    }
-    .badge {
-        display: inline-flex;
-        align-items: center;
-        background: rgba(96,165,250,0.15);
-        color: #93c5fd;
-        font-size: 0.68rem;
-        font-weight: 700;
-        letter-spacing: .1em;
-        text-transform: uppercase;
-        padding: 5px 16px;
-        border-radius: 100px;
-        border: 1px solid rgba(96,165,250,0.35);
-        margin-bottom: 22px;
-    }
-    .logo {
-        font-size: 1.8rem;
-        font-weight: 900;
-        color: #fff;
-        letter-spacing: -.04em;
-        margin-bottom: 18px;
-    }
-    .logo .it { color: #60a5fa; }
-    .headline {
-        font-size: 3.0rem;
-        font-weight: 900;
-        color: #fff;
-        letter-spacing: -.04em;
-        line-height: 1.2;
-        margin-bottom: 16px;
-        word-break: keep-all;
-    }
-    .headline .hl { color: #60a5fa; }
-    .sub {
-        font-size: 0.96rem;
-        color: rgba(255,255,255,0.52);
-        line-height: 1.8;
-        margin-bottom: 40px;
-        word-break: keep-all;
-    }
-    /* ─ 카드 ─ */
-    .cards {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        width: 100%;
-        max-width: 700px;
-        margin-bottom: 40px;
-    }
-    .card {
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 18px;
-        padding: 28px 24px 22px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-align: left;
-        user-select: none;
-    }
-    .card:hover {
-        background: rgba(255,255,255,0.1);
-        border-color: rgba(96,165,250,0.5);
-        transform: translateY(-4px);
-        box-shadow: 0 14px 36px rgba(0,0,0,0.45);
-    }
-    .card:active { transform: translateY(-1px); }
-    .card-label {
-        font-size: 0.6rem;
-        font-weight: 700;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        color: #60a5fa;
-        margin-bottom: 8px;
-    }
-    .card-title {
-        font-size: 1rem;
-        font-weight: 800;
-        color: #fff;
-        margin-bottom: 10px;
-        letter-spacing: -.02em;
-        line-height: 1.3;
-    }
-    .card-desc {
-        font-size: 0.79rem;
-        color: rgba(255,255,255,0.48);
-        line-height: 1.65;
-        margin-bottom: 20px;
-        word-break: keep-all;
-    }
-    .card-arrow {
-        font-size: 0.76rem;
-        font-weight: 700;
-        color: #60a5fa;
-    }
-    .footer {
-        font-size: 0.66rem;
-        color: rgba(255,255,255,0.18);
-        letter-spacing: .05em;
-    }
-    </style>
-    </head>
-    <body>
-    <div class="wrap">
-      <div class="badge">설계사 전용 AI 플랫폼</div>
-      <div class="logo">SUR<span class="it">IT</span></div>
-      <div class="headline">보험의 확신,<br><span class="hl">슈릿</span>에서 쉽고 간편하게.</div>
-      <div class="sub">
-        심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
-        기존·신규 보장을 한눈에 비교해 드립니다.
-      </div>
-      <div class="cards">
-        <div class="card" onclick="window.top.location.href='?goto=disclosure'">
-          <div class="card-label">Feature 01</div>
-          <div class="card-title">알릴의무 필터</div>
-          <div class="card-desc">심평원 진료 PDF를 업로드하면 AI가 고지 항목을 자동으로 추출합니다. 건강체·간편심사 기준 모두 지원합니다.</div>
-          <div class="card-arrow">시작하기 →</div>
+    # ── 히어로 텍스트 ──
+    st.markdown("""
+    <div style="display:flex;flex-direction:column;align-items:center;
+                text-align:center;padding:60px 24px 36px;position:relative;z-index:1;">
+        <div style="display:inline-flex;align-items:center;
+                    background:rgba(96,165,250,0.15);color:#93c5fd;
+                    font-size:0.68rem;font-weight:700;letter-spacing:.1em;
+                    text-transform:uppercase;padding:5px 16px;
+                    border-radius:100px;border:1px solid rgba(96,165,250,0.35);
+                    margin-bottom:22px;">설계사 전용 AI 플랫폼</div>
+        <div style="font-size:1.8rem;font-weight:900;color:#fff;
+                    letter-spacing:-.04em;margin-bottom:16px;">
+            SUR<span style="color:#60a5fa;">IT</span>
         </div>
-        <div class="card" onclick="window.top.location.href='?goto=before_after'">
-          <div class="card-label">Feature 02</div>
-          <div class="card-title">보장분석 비포&에프터</div>
-          <div class="card-desc">기존 보장내역과 신규 제안서를 비교해 리모델링 근거를 시각적으로 제시합니다. 고객 설득에 바로 활용 가능합니다.</div>
-          <div class="card-arrow">시작하기 →</div>
+        <div style="font-size:3.0rem;font-weight:900;color:#fff;
+                    letter-spacing:-.04em;line-height:1.2;
+                    margin-bottom:16px;word-break:keep-all;">
+            보험의 확신,<br><span style="color:#60a5fa;">슈릿</span>에서 쉽고 간편하게.
         </div>
-      </div>
-      <div class="footer">SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini</div>
+        <div style="font-size:0.96rem;color:rgba(255,255,255,0.52);
+                    line-height:1.8;word-break:keep-all;">
+            심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
+            기존·신규 보장을 한눈에 비교해 드립니다.
+        </div>
     </div>
-    </body>
-    </html>
-    """, height=800, scrolling=False)
+    """, unsafe_allow_html=True)
+
+    # ── 기능 카드 — st.button 방식 (100% 작동) ──
+    _, c1, c2, _ = st.columns([0.5, 3, 3, 0.5])
+    with c1:
+        with st.container(border=True):
+            st.markdown("""
+            <div style="padding:4px 0 10px;">
+                <div style="font-size:0.6rem;font-weight:700;letter-spacing:.12em;
+                            text-transform:uppercase;color:#60a5fa;margin-bottom:8px;">Feature 01</div>
+                <div style="font-size:1.05rem;font-weight:800;color:#fff;
+                            margin-bottom:10px;letter-spacing:-.02em;">알릴의무 필터</div>
+                <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);
+                            line-height:1.65;word-break:keep-all;">
+                    심평원 진료 PDF를 업로드하면 AI가<br>
+                    고지 항목을 자동으로 추출합니다.<br>
+                    건강체·간편심사 기준 모두 지원합니다.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("시작하기 →", key="go_disclosure", use_container_width=True):
+                st.session_state.menu = "disclosure"
+                st.rerun()
+    with c2:
+        with st.container(border=True):
+            st.markdown("""
+            <div style="padding:4px 0 10px;">
+                <div style="font-size:0.6rem;font-weight:700;letter-spacing:.12em;
+                            text-transform:uppercase;color:#60a5fa;margin-bottom:8px;">Feature 02</div>
+                <div style="font-size:1.05rem;font-weight:800;color:#fff;
+                            margin-bottom:10px;letter-spacing:-.02em;">보장분석 비포&amp;에프터</div>
+                <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);
+                            line-height:1.65;word-break:keep-all;">
+                    기존 보장내역과 신규 제안서를 비교해<br>
+                    리모델링 근거를 시각적으로 제시합니다.<br>
+                    고객 설득에 바로 활용 가능합니다.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            if st.button("시작하기 →", key="go_before_after", use_container_width=True):
+                st.session_state.menu = "before_after"
+                st.rerun()
+
+    st.markdown("""
+    <div style="text-align:center;padding:32px 0 20px;position:relative;z-index:1;">
+        <span style="font-size:0.66rem;color:rgba(255,255,255,0.18);letter-spacing:.05em;">
+            SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini
+        </span>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 
 # ══════════════════════════════════════════
