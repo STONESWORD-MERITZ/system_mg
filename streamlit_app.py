@@ -631,14 +631,17 @@ if menu not in ("home", "before_after", "disclosure"):
 # PAGE: 홈 (랜딩 페이지)
 # ══════════════════════════════════════════
 if menu == "home":
-    # 홈 전용 — stApp 배경을 다크로
+    # 홈 전용 — stApp 배경 다크
     st.markdown("""
     <style>
     html, body, .stApp, [data-testid="stAppViewContainer"],
-    [data-testid="stMain"], .main { background: #070f1f !important; }
+    [data-testid="stMain"], .main, .block-container {
+        background: #070f1f !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
+    # ── 히어로 영역 (배지 · 로고 · 헤드라인 · 서브) ──
     st.markdown("""
     <div class="home-wrap">
       <div class="home-inner">
@@ -651,39 +654,118 @@ if menu == "home":
           심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
           기존·신규 보장을 한눈에 비교해 드립니다.
         </div>
-        <div class="home-divider"></div>
-
-        <div class="home-cards">
-          <a href="?goto=disclosure" class="home-card-link">
-            <div class="home-card">
-              <div class="home-card-label">Feature 01</div>
-              <div class="home-card-title">알릴의무 필터</div>
-              <div class="home-card-desc">
-                심평원 진료 PDF를 업로드하면 AI가<br>
-                고지 항목을 자동으로 추출합니다.<br>
-                건강체·간편심사 기준 모두 지원합니다.
-              </div>
-              <div class="home-card-arrow">시작하기 &rarr;</div>
-            </div>
-          </a>
-          <a href="?goto=before_after" class="home-card-link">
-            <div class="home-card">
-              <div class="home-card-label">Feature 02</div>
-              <div class="home-card-title">보장분석 비포&amp;에프터</div>
-              <div class="home-card-desc">
-                기존 보장내역과 신규 제안서를 비교해<br>
-                리모델링 근거를 시각적으로 제시합니다.<br>
-                고객 설득에 바로 활용 가능합니다.
-              </div>
-              <div class="home-card-arrow">시작하기 &rarr;</div>
-            </div>
-          </a>
-        </div>
-
-        <div class="home-footer">SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini</div>
       </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # ── 카드 섹션 — components.html로 iframe 내 onclick 작동 ──
+    components.html("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta charset="utf-8">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+        background: #070f1f;
+        font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0 24px 32px;
+    }
+    .divider {
+        width: 40px; height: 2px;
+        background: rgba(96,165,250,0.4);
+        border-radius: 2px;
+        margin: 0 auto 36px;
+    }
+    .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        width: 100%;
+        max-width: 720px;
+    }
+    .card {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.14);
+        border-radius: 18px;
+        padding: 28px 26px 24px;
+        cursor: pointer;
+        transition: all 0.22s ease;
+        text-decoration: none;
+        display: block;
+        user-select: none;
+    }
+    .card:hover {
+        background: rgba(255,255,255,0.11);
+        border-color: rgba(96,165,250,0.55);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(96,165,250,0.2);
+    }
+    .card:active { transform: translateY(-1px); }
+    .card-label {
+        font-size: 0.63rem;
+        font-weight: 700;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        color: #60a5fa;
+        margin-bottom: 10px;
+    }
+    .card-title {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #ffffff;
+        margin-bottom: 10px;
+        letter-spacing: -.025em;
+        line-height: 1.3;
+    }
+    .card-desc {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.52);
+        line-height: 1.7;
+        margin-bottom: 22px;
+        word-break: keep-all;
+    }
+    .card-arrow {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #60a5fa;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .footer {
+        margin-top: 36px;
+        font-size: 0.7rem;
+        color: rgba(255,255,255,0.2);
+        letter-spacing: .04em;
+        text-align: center;
+    }
+    </style>
+    </head>
+    <body>
+      <div class="divider"></div>
+      <div class="cards">
+        <div class="card" onclick="window.parent.location.href='?goto=disclosure'">
+          <div class="card-label">Feature 01</div>
+          <div class="card-title">알릴의무 필터</div>
+          <div class="card-desc">심평원 진료 PDF를 업로드하면 AI가 고지 항목을 자동으로 추출합니다. 건강체·간편심사 기준 모두 지원합니다.</div>
+          <div class="card-arrow">시작하기 →</div>
+        </div>
+        <div class="card" onclick="window.parent.location.href='?goto=before_after'">
+          <div class="card-label">Feature 02</div>
+          <div class="card-title">보장분석 비포&에프터</div>
+          <div class="card-desc">기존 보장내역과 신규 제안서를 비교해 리모델링 근거를 시각적으로 제시합니다. 고객 설득에 바로 활용 가능합니다.</div>
+          <div class="card-arrow">시작하기 →</div>
+        </div>
+      </div>
+      <div class="footer">SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini</div>
+    </body>
+    </html>
+    """, height=300)
 
 
 # ══════════════════════════════════════════
