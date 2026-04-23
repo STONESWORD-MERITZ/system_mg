@@ -48,11 +48,11 @@ st.markdown("""
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* ── 전체 배경 ── */
+/* ── 전체 배경 — 다크 네이비 ── */
 html, body, .stApp {
-    background: #f5f6f8 !important;
+    background: #0a1628 !important;
     font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif !important;
-    color: #1f2937 !important;
+    color: rgba(255,255,255,0.88) !important;
 }
 
 /* ── Streamlit 기본 UI 제거 ── */
@@ -152,27 +152,27 @@ section[data-testid="stSidebar"],
 .page-header {
     padding: 20px 0 14px;
     margin-bottom: 16px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .page-eyebrow {
     font-size: 0.7rem; font-weight: 600;
-    color: #3b82f6 !important; margin-bottom: 4px;
+    color: #60a5fa !important; margin-bottom: 4px;
     letter-spacing: .04em;
 }
 .page-title {
     font-size: 1.3rem; font-weight: 800;
-    color: #111827 !important; letter-spacing: -.03em; line-height: 1.2;
+    color: #ffffff !important; letter-spacing: -.03em; line-height: 1.2;
 }
-.page-desc { font-size: 0.78rem; color: #6b7280 !important; margin-top: 4px; line-height: 1.5; }
+.page-desc { font-size: 0.78rem; color: rgba(255,255,255,0.5) !important; margin-top: 4px; line-height: 1.5; }
 
 /* ══════════════════════════════
    카드 공통
 ══════════════════════════════ */
 .cl-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 8px rgba(0,0,0,0.2);
 }
 
 /* ══════════════════════════════
@@ -180,17 +180,17 @@ section[data-testid="stSidebar"],
 ══════════════════════════════ */
 .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat-card {
-    background: #ffffff; border: 1px solid #e5e7eb;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px; padding: 14px 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 8px rgba(0,0,0,0.2);
 }
-.stat-card.ok     { border-color: #bbf7d0; background: #f0fdf4; }
-.stat-card.warn   { border-color: #fde68a; background: #fffbeb; }
-.stat-card.danger { border-color: #fecaca; background: #fef2f2; }
-.sc-label { font-size: 0.7rem; color: #9ca3af !important; font-weight: 600; margin-bottom: 6px; }
-.sc-value { font-family: 'DM Mono', monospace; font-size: 2rem; font-weight: 700; color: #111827 !important; line-height: 1; }
-.stat-card.ok .sc-value { color: #16a34a !important; }
-.stat-card.warn .sc-value, .stat-card.danger .sc-value { color: #dc2626 !important; }
+.stat-card.ok     { border-color: rgba(74,222,128,0.3); background: rgba(16,185,129,0.08); }
+.stat-card.warn   { border-color: rgba(251,191,36,0.3); background: rgba(245,158,11,0.08); }
+.stat-card.danger { border-color: rgba(248,113,113,0.3); background: rgba(239,68,68,0.08); }
+.sc-label { font-size: 0.7rem; color: rgba(255,255,255,0.45) !important; font-weight: 600; margin-bottom: 6px; }
+.sc-value { font-family: 'DM Mono', monospace; font-size: 2rem; font-weight: 700; color: #ffffff !important; line-height: 1; }
+.stat-card.ok .sc-value { color: #4ade80 !important; }
+.stat-card.warn .sc-value, .stat-card.danger .sc-value { color: #f87171 !important; }
 .sc-sub { font-size: 0.7rem; color: #9ca3af !important; margin-top: 4px; }
 
 /* ══════════════════════════════
@@ -232,26 +232,26 @@ section[data-testid="stSidebar"],
    고지 카드
 ══════════════════════════════ */
 .duty-card {
-    background: #ffffff; border: 1px solid #e5e7eb;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px; margin-bottom: 10px;
-    overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.25);
 }
 .duty-card-head {
     display: flex; align-items: center; gap: 10px;
-    padding: 11px 16px; background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
+    padding: 11px 16px; background: rgba(255,255,255,0.07);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .duty-q-badge {
     font-size: 0.68rem; font-weight: 700; background: #3b82f6;
     color: #fff !important; padding: 2px 9px; border-radius: 100px;
 }
-.duty-q-title { font-size: 0.86rem; font-weight: 700; color: #111827 !important; }
-.duty-item { padding: 12px 16px; border-bottom: 1px solid #f3f4f6; }
+.duty-q-title { font-size: 0.86rem; font-weight: 700; color: rgba(255,255,255,0.9) !important; }
+.duty-item { padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
 .duty-item:last-child { border-bottom: none; }
-.duty-disease { font-size: 0.9rem; font-weight: 700; color: #111827 !important; margin-bottom: 2px; }
-.duty-code { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: #9ca3af !important; margin-left: 6px; background: #f3f4f6; padding: 1px 5px; border-radius: 4px; }
-.duty-meta { font-size: 0.76rem; color: #9ca3af !important; margin: 3px 0; }
-.duty-reason { font-size: 0.78rem; color: #1d4ed8 !important; margin: 4px 0; font-weight: 600; padding: 4px 10px; background: #eff6ff; border-radius: 6px; border-left: 3px solid #3b82f6; }
+.duty-disease { font-size: 0.9rem; font-weight: 700; color: rgba(255,255,255,0.9) !important; margin-bottom: 2px; }
+.duty-code { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: rgba(255,255,255,0.4) !important; margin-left: 6px; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+.duty-meta { font-size: 0.76rem; color: rgba(255,255,255,0.4) !important; margin: 3px 0; }
+.duty-reason { font-size: 0.78rem; color: #93c5fd !important; margin: 4px 0; font-weight: 600; padding: 4px 10px; background: rgba(59,130,246,0.12); border-radius: 6px; border-left: 3px solid #3b82f6; }
 .duty-stats-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
 .stat-pill { font-size: 0.7rem; background: #f3f4f6; color: #6b7280 !important; padding: 2px 8px; border-radius: 100px; font-weight: 500; border: 1px solid #e5e7eb; }
 .stat-pill.red { background: #fef2f2; color: #dc2626 !important; border-color: #fecaca; }
@@ -293,10 +293,10 @@ section[data-testid="stSidebar"],
    보장분석
 ══════════════════════════════ */
 .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-.ba-panel { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
-.ba-head { padding: 11px 16px; font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid #f3f4f6; }
-.ba-before .ba-head { background: #fffbeb; color: #92400e !important; }
-.ba-after  .ba-head { background: #f0fdf4; color: #166534 !important; }
+.ba-panel { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 8px rgba(0,0,0,0.2); }
+.ba-head { padding: 11px 16px; font-size: 0.78rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.ba-before .ba-head { background: rgba(245,158,11,0.12); color: #fcd34d !important; }
+.ba-after  .ba-head { background: rgba(16,185,129,0.12); color: #4ade80 !important; }
 .cov-row { display: flex; align-items: center; padding: 8px 16px; border-bottom: 1px solid #f9fafb; gap: 10px; font-size: 0.8rem; }
 .cov-row:last-child { border-bottom: none; }
 .cov-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
@@ -312,13 +312,13 @@ section[data-testid="stSidebar"],
    파일 업로더
 ══════════════════════════════ */
 [data-testid="stFileUploader"] section {
-    background: #ffffff !important;
-    border: 1px dashed #d1d5db !important;
+    background: rgba(255,255,255,0.04) !important;
+    border: 1px dashed rgba(255,255,255,0.2) !important;
     border-radius: 12px !important;
     transition: all 0.15s !important;
 }
-[data-testid="stFileUploader"] section:hover { border-color: #3b82f6 !important; background: #eff6ff !important; }
-[data-testid="stFileUploader"] *, [data-testid="stUploadedFile"] * { color: #1f2937 !important; }
+[data-testid="stFileUploader"] section:hover { border-color: #60a5fa !important; background: rgba(96,165,250,0.07) !important; }
+[data-testid="stFileUploader"] *, [data-testid="stUploadedFile"] * { color: rgba(255,255,255,0.8) !important; }
 [data-testid="stFileUploader"] button { background: #3b82f6 !important; border: none !important; border-radius: 8px !important; }
 [data-testid="stUploadedFileData"] { padding: 4px 0 !important; }
 
@@ -344,12 +344,12 @@ section[data-testid="stSidebar"],
 ══════════════════════════════ */
 .upload-empty {
     text-align: center; padding: 56px 20px;
-    background: #ffffff; border: 1px solid #e5e7eb;
-    border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 14px; box-shadow: 0 1px 8px rgba(0,0,0,0.2);
 }
 .upload-empty-icon { font-size: 2.8rem; margin-bottom: 12px; }
-.upload-empty-title { font-size: 0.92rem; font-weight: 700; color: #111827 !important; margin-bottom: 5px; }
-.upload-empty-desc { font-size: 0.78rem; color: #9ca3af !important; line-height: 1.6; }
+.upload-empty-title { font-size: 0.92rem; font-weight: 700; color: rgba(255,255,255,0.9) !important; margin-bottom: 5px; }
+.upload-empty-desc { font-size: 0.78rem; color: rgba(255,255,255,0.4) !important; line-height: 1.6; }
 
 /* ══════════════════════════════
    경고 배너
@@ -671,7 +671,7 @@ if menu == "home":
     # ── 히어로 텍스트 ──
     st.markdown("""
     <div style="display:flex;flex-direction:column;align-items:center;
-                text-align:center;padding:60px 24px 36px;position:relative;z-index:1;">
+                text-align:center;padding:40px 24px 24px;position:relative;z-index:1;">
         <div style="display:inline-flex;align-items:center;
                     background:rgba(96,165,250,0.15);color:#93c5fd;
                     font-size:0.68rem;font-weight:700;letter-spacing:.1em;
@@ -696,20 +696,18 @@ if menu == "home":
     """, unsafe_allow_html=True)
 
     # ── 기능 카드 — st.button 방식 (100% 작동) ──
-    _, c1, c2, _ = st.columns([0.5, 3, 3, 0.5])
+    _, c1, c2, _ = st.columns([1.5, 2.5, 2.5, 1.5])
     with c1:
         with st.container(border=True):
             st.markdown("""
-            <div style="padding:4px 0 10px;">
-                <div style="font-size:0.6rem;font-weight:700;letter-spacing:.12em;
-                            text-transform:uppercase;color:#60a5fa;margin-bottom:8px;">Feature 01</div>
-                <div style="font-size:1.05rem;font-weight:800;color:#fff;
-                            margin-bottom:10px;letter-spacing:-.02em;">알릴의무 필터</div>
-                <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);
-                            line-height:1.65;word-break:keep-all;">
-                    심평원 진료 PDF를 업로드하면 AI가<br>
-                    고지 항목을 자동으로 추출합니다.<br>
-                    건강체·간편심사 기준 모두 지원합니다.
+            <div style="padding:2px 0 6px;">
+                <div style="font-size:0.58rem;font-weight:700;letter-spacing:.12em;
+                            text-transform:uppercase;color:#60a5fa;margin-bottom:6px;">Feature 01</div>
+                <div style="font-size:0.95rem;font-weight:800;color:#fff;
+                            margin-bottom:8px;letter-spacing:-.02em;">알릴의무 필터</div>
+                <div style="font-size:0.76rem;color:rgba(255,255,255,0.48);
+                            line-height:1.6;word-break:keep-all;">
+                    심평원 PDF 업로드 시 AI가<br>고지 항목을 자동 추출합니다.
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -719,16 +717,14 @@ if menu == "home":
     with c2:
         with st.container(border=True):
             st.markdown("""
-            <div style="padding:4px 0 10px;">
-                <div style="font-size:0.6rem;font-weight:700;letter-spacing:.12em;
-                            text-transform:uppercase;color:#60a5fa;margin-bottom:8px;">Feature 02</div>
-                <div style="font-size:1.05rem;font-weight:800;color:#fff;
-                            margin-bottom:10px;letter-spacing:-.02em;">보장분석 비포&amp;에프터</div>
-                <div style="font-size:0.8rem;color:rgba(255,255,255,0.5);
-                            line-height:1.65;word-break:keep-all;">
-                    기존 보장내역과 신규 제안서를 비교해<br>
-                    리모델링 근거를 시각적으로 제시합니다.<br>
-                    고객 설득에 바로 활용 가능합니다.
+            <div style="padding:2px 0 6px;">
+                <div style="font-size:0.58rem;font-weight:700;letter-spacing:.12em;
+                            text-transform:uppercase;color:#60a5fa;margin-bottom:6px;">Feature 02</div>
+                <div style="font-size:0.95rem;font-weight:800;color:#fff;
+                            margin-bottom:8px;letter-spacing:-.02em;">보장분석 비포&amp;에프터</div>
+                <div style="font-size:0.76rem;color:rgba(255,255,255,0.48);
+                            line-height:1.6;word-break:keep-all;">
+                    기존·신규 보장을 비교해<br>리모델링 근거를 제시합니다.
                 </div>
             </div>
             """, unsafe_allow_html=True)
