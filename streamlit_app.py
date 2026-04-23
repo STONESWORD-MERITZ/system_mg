@@ -363,7 +363,7 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
 }
 
 /* ══════════════════════════════
-   홈 히어로 섹션
+   홈 히어로 — 다크 네이비 배경
 ══════════════════════════════ */
 .home-wrap {
     min-height: calc(100vh - 56px);
@@ -372,134 +372,175 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
     align-items: center;
     justify-content: center;
     padding: 80px 24px 60px;
-    background: #ffffff;
+    margin: 0 -1.5rem -2rem -1.5rem;
+    position: relative;
+    overflow: hidden;
+
+    /* 보험 전용 다크 네이비 그라디언트 */
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(37,99,235,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 20%, rgba(99,102,241,0.14) 0%, transparent 50%),
+        linear-gradient(160deg, #070f1f 0%, #0d1f3c 30%, #112a52 60%, #0a1628 100%);
 }
+
+/* 은은한 도트 그리드 오버레이 */
+.home-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size: 36px 36px;
+    pointer-events: none;
+}
+
+/* 좌상단 장식 원 */
+.home-wrap::after {
+    content: '';
+    position: absolute;
+    top: -120px; left: -120px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.12) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.home-inner {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 860px;
+}
+
 .home-badge {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #eff6ff;
-    color: #3b82f6 !important;
-    font-size: 0.75rem;
+    background: rgba(96,165,250,0.15);
+    color: #93c5fd !important;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: .06em;
-    padding: 5px 14px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 5px 16px;
     border-radius: 100px;
-    border: 1px solid #bfdbfe;
+    border: 1px solid rgba(96,165,250,0.35);
     margin-bottom: 28px;
 }
+
 .home-logo {
-    font-size: 2.2rem;
+    font-size: 1.9rem;
     font-weight: 900;
-    color: #111827 !important;
+    color: #ffffff !important;
     letter-spacing: -.04em;
     line-height: 1;
-    margin-bottom: 20px;
+    margin-bottom: 22px;
     text-align: center;
 }
-.home-logo span { color: #3b82f6 !important; }
+.home-logo .logo-it { color: #60a5fa !important; }
+
 .home-headline {
-    font-size: 3.2rem;
+    font-size: 3.4rem;
     font-weight: 900;
-    color: #111827 !important;
+    color: #ffffff !important;
     letter-spacing: -.04em;
-    line-height: 1.15;
+    line-height: 1.18;
     text-align: center;
     margin-bottom: 20px;
     word-break: keep-all;
 }
-.home-headline .hl { color: #3b82f6 !important; }
+.home-headline .hl { color: #60a5fa !important; }
+
 .home-sub {
-    font-size: 1.05rem;
-    color: #6b7280 !important;
+    font-size: 1rem;
+    color: rgba(255,255,255,0.58) !important;
     text-align: center;
-    line-height: 1.7;
-    margin-bottom: 52px;
+    line-height: 1.8;
+    margin-bottom: 56px;
     word-break: keep-all;
 }
+
+/* 카드 그리드 */
 .home-cards {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 18px;
     width: 100%;
-    max-width: 760px;
-    margin-bottom: 48px;
+    max-width: 720px;
+    margin-bottom: 52px;
 }
-.home-card {
-    background: #ffffff;
-    border: 1.5px solid #e5e7eb;
-    border-radius: 20px;
-    padding: 32px 28px;
-    cursor: pointer;
-    transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    text-align: left;
-}
-.home-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 8px 24px rgba(59,130,246,0.12);
-    transform: translateY(-2px);
-}
-.home-card-icon {
-    font-size: 2rem;
-    margin-bottom: 16px;
+
+/* 카드 링크 래퍼 */
+.home-card-link {
+    text-decoration: none !important;
     display: block;
 }
+
+.home-card {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px;
+    padding: 30px 28px 26px;
+    cursor: pointer;
+    transition: all 0.22s ease;
+    text-align: left;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.home-card:hover {
+    background: rgba(255,255,255,0.11);
+    border-color: rgba(96,165,250,0.55);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(96,165,250,0.2);
+}
+
+.home-card-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #60a5fa !important;
+    margin-bottom: 10px;
+}
 .home-card-title {
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     font-weight: 800;
-    color: #111827 !important;
-    margin-bottom: 8px;
-    letter-spacing: -.02em;
+    color: #ffffff !important;
+    margin-bottom: 10px;
+    letter-spacing: -.025em;
+    line-height: 1.3;
 }
 .home-card-desc {
     font-size: 0.82rem;
-    color: #6b7280 !important;
-    line-height: 1.6;
+    color: rgba(255,255,255,0.55) !important;
+    line-height: 1.65;
     word-break: keep-all;
+    margin-bottom: 22px;
 }
 .home-card-arrow {
-    margin-top: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     font-size: 0.8rem;
     font-weight: 700;
-    color: #3b82f6 !important;
+    color: #60a5fa !important;
 }
+
+.home-divider {
+    width: 40px; height: 2px;
+    background: rgba(96,165,250,0.4);
+    border-radius: 2px;
+    margin: 0 auto 48px;
+}
+
 .home-footer {
-    font-size: 0.75rem;
-    color: #d1d5db !important;
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.22) !important;
     text-align: center;
-    letter-spacing: .02em;
+    letter-spacing: .04em;
 }
-
-/* ── 홈 카드 CTA 버튼 ── */
-button[data-testid="baseButton-secondary"][kind="secondary"] {
-    background: #f8faff !important;
-    border: 1.5px solid #bfdbfe !important;
-    border-radius: 10px !important;
-    color: #3b82f6 !important;
-    font-weight: 700 !important;
-    font-size: 0.84rem !important;
-    padding: 10px 0 !important;
-    box-shadow: none !important;
-    transition: all 0.15s !important;
-}
-
-/* ── 네비 로고 버튼 ── */
-.nav-logo-btn button {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-    color: #111827 !important;
-    font-size: 1rem !important;
-    font-weight: 800 !important;
-    letter-spacing: -.02em !important;
-    height: auto !important;
-}
-.nav-logo-btn button:hover { opacity: 0.7 !important; }
-
-/* ── 홈일 때 배경 흰색 ── */
-.page-home .stApp { background: #ffffff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -590,41 +631,57 @@ if menu not in ("home", "before_after", "disclosure"):
 # PAGE: 홈 (랜딩 페이지)
 # ══════════════════════════════════════════
 if menu == "home":
+    # 홈 전용 — stApp 배경을 다크로
+    st.markdown("""
+    <style>
+    html, body, .stApp, [data-testid="stAppViewContainer"],
+    [data-testid="stMain"], .main { background: #070f1f !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
     st.markdown("""
     <div class="home-wrap">
+      <div class="home-inner">
         <div class="home-badge">설계사 전용 AI 플랫폼</div>
-        <div class="home-logo">SUR<span>IT</span></div>
+        <div class="home-logo">SUR<span class="logo-it">IT</span></div>
         <div class="home-headline">
-            보험의 확신,<br>
-            <span class="hl">슈릿</span>에서 쉽고 간편하게.
+          보험의 확신,<br><span class="hl">슈릿</span>에서 쉽고 간편하게.
         </div>
         <div class="home-sub">
-            심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
-            기존·신규 보장을 한눈에 비교해 드립니다.
+          심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
+          기존·신규 보장을 한눈에 비교해 드립니다.
         </div>
+        <div class="home-divider"></div>
 
         <div class="home-cards">
-            <div class="home-card" onclick="window.location.href='?goto=disclosure'">
-                <div class="home-card-title">알릴의무 필터</div>
-                <div class="home-card-desc">
-                    심평원 진료 PDF를 업로드하면<br>
-                    AI가 고지 항목을 자동으로 추출합니다.<br>
-                    건강체·간편심사 기준 모두 지원합니다.
-                </div>
-                <div class="home-card-arrow">시작하기 →</div>
+          <a href="?goto=disclosure" class="home-card-link">
+            <div class="home-card">
+              <div class="home-card-label">Feature 01</div>
+              <div class="home-card-title">알릴의무 필터</div>
+              <div class="home-card-desc">
+                심평원 진료 PDF를 업로드하면 AI가<br>
+                고지 항목을 자동으로 추출합니다.<br>
+                건강체·간편심사 기준 모두 지원합니다.
+              </div>
+              <div class="home-card-arrow">시작하기 &rarr;</div>
             </div>
-            <div class="home-card" onclick="window.location.href='?goto=before_after'">
-                <div class="home-card-title">보장분석 비포&amp;에프터</div>
-                <div class="home-card-desc">
-                    기존 보장내역과 신규 제안서를 비교해<br>
-                    리모델링 근거를 시각적으로 제시합니다.<br>
-                    고객 설득에 바로 활용 가능합니다.
-                </div>
-                <div class="home-card-arrow">시작하기 →</div>
+          </a>
+          <a href="?goto=before_after" class="home-card-link">
+            <div class="home-card">
+              <div class="home-card-label">Feature 02</div>
+              <div class="home-card-title">보장분석 비포&amp;에프터</div>
+              <div class="home-card-desc">
+                기존 보장내역과 신규 제안서를 비교해<br>
+                리모델링 근거를 시각적으로 제시합니다.<br>
+                고객 설득에 바로 활용 가능합니다.
+              </div>
+              <div class="home-card-arrow">시작하기 &rarr;</div>
             </div>
+          </a>
         </div>
 
-        <div class="home-footer">SURIT · 설계사에게 확신을 주다 · Powered by Google Gemini</div>
+        <div class="home-footer">SURIT &middot; 설계사에게 확신을 주다 &middot; Powered by Google Gemini</div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
