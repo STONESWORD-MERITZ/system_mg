@@ -20,7 +20,7 @@ st.set_page_config(
     page_title="설계사에게 확신을 주다. SURIT",
     layout="wide",
     page_icon="🛡️",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
     menu_items={
         'Get Help': None,
         'Report a bug': None,
@@ -63,81 +63,85 @@ div[data-testid="stToolbar"],
 }
 [data-testid="stMainBlockContainer"] { padding-top: 0 !important; }
 
-/* ══════════════════════════════
-   사이드바
-══════════════════════════════ */
+/* ── 사이드바 완전 숨김 ── */
 section[data-testid="stSidebar"],
-section[data-testid="stSidebar"][aria-expanded="false"] {
-    min-width: 280px !important;
-    width: 280px !important;
-    left: 0 !important;
-    transform: translateX(0) !important;
-    margin-left: 0 !important;
-    visibility: visible !important;
-    background: #ffffff !important;
-    border-right: 1px solid #e5e7eb !important;
+[data-testid="collapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    min-width: 0 !important;
 }
-[data-testid="stSidebar"] > div { padding-top: 0 !important; margin-top: 0 !important; }
-[data-testid="stSidebarContent"] { padding-top: 0 !important; }
-[data-testid="stSidebar"] * { color: #374151 !important; }
 
-/* 로고 */
-.sb-logo {
-    padding: 22px 20px 14px;
-    border-bottom: 1px solid #f3f4f6;
+/* ══════════════════════════════
+   상단 네비게이션 바
+══════════════════════════════ */
+.topnav {
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 8px;
+    height: 56px;
+    margin: 0 -1.5rem 20px -1.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
-.sb-logo-name {
-    font-size: 1rem; font-weight: 800;
+.nav-logo {
+    font-size: 1rem;
+    font-weight: 800;
     color: #111827 !important;
-    letter-spacing: -.02em; line-height: 1.2;
+    letter-spacing: -.02em;
+    padding: 0 20px;
+    line-height: 1.2;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
-.sb-logo-sub {
-    font-size: 0.68rem; color: #9ca3af !important;
-    margin-top: 3px; font-weight: 500;
-}
-
-/* 메뉴 그룹 라벨 */
-.sb-group {
-    font-size: 0.65rem; font-weight: 700;
-    letter-spacing: .1em; text-transform: uppercase;
+.nav-logo-sub {
+    font-size: 0.6rem;
+    font-weight: 500;
     color: #9ca3af !important;
-    padding: 16px 20px 6px;
+    letter-spacing: 0;
+    display: block;
+}
+.nav-divider {
+    width: 1px;
+    height: 20px;
+    background: #e5e7eb;
+    margin: 0 4px;
+    flex-shrink: 0;
 }
 
-/* 네비 버튼 */
-[data-testid="stSidebar"] .stButton button {
+/* 네비 탭 버튼 스타일 */
+div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button,
+div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button {
+    height: 56px !important;
     background: transparent !important;
     border: none !important;
-    border-radius: 8px !important;
-    color: #6b7280 !important;
+    border-bottom: 3px solid transparent !important;
+    border-radius: 0 !important;
     font-size: 0.84rem !important;
-    font-weight: 500 !important;
-    text-align: left !important;
-    padding: 8px 16px !important;
-    width: 100% !important;
-    transition: all 0.12s !important;
+    font-weight: 600 !important;
+    color: #6b7280 !important;
+    padding: 0 18px !important;
     box-shadow: none !important;
-    margin: 1px 0 !important;
+    transition: all 0.15s !important;
+    margin-bottom: -1px !important;
     white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
 }
-[data-testid="stSidebar"] .stButton button p {
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-}
-[data-testid="stSidebar"] .stButton button:hover {
-    background: #f9fafb !important;
+div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button:hover,
+div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button:hover {
     color: #111827 !important;
+    background: #f9fafb !important;
 }
-[data-testid="stSidebar"] .stButton button[kind="primary"] {
-    background: #eff6ff !important;
-    color: #1d4ed8 !important;
+div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button[kind="primary"],
+div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button[kind="primary"] {
+    color: #3b82f6 !important;
+    border-bottom: 3px solid #3b82f6 !important;
     font-weight: 700 !important;
-    border-left: 3px solid #3b82f6 !important;
-    border-radius: 0 8px 8px 0 !important;
-    padding-left: 16px !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 /* ══════════════════════════════
@@ -367,29 +371,27 @@ div[data-testid="stAlert"] { border-radius: 10px !important; }
 
 
 # ==========================================
-# 사이드바
+# 상단 네비게이션 바
 # ==========================================
-with st.sidebar:
+st.markdown('<div class="topnav">', unsafe_allow_html=True)
+col_logo, col_nav1, col_nav2, col_spacer = st.columns([2, 2, 3, 8])
+with col_logo:
     st.markdown("""
-    <div class="sb-logo">
-        <div class="sb-logo-name">SURIT</div>
-        <div class="sb-logo-sub">설계사에게 확신을 주다.</div>
-    </div>
+    <div class="nav-logo">SURIT<span class="nav-logo-sub">설계사에게 확신을 주다.</span></div>
     """, unsafe_allow_html=True)
-
-    st.markdown('<div class="sb-group">메뉴</div>', unsafe_allow_html=True)
-
-    menus = [
-        ("disclosure",   "🔍", "알릴의무 필터"),
-        ("before_after", "🔄", "보장분석 비포&에프터"),
-    ]
-    for key, icon, label in menus:
-        is_active = st.session_state.menu == key
-        if st.button(f"{icon}  {label}", key=f"nav_{key}",
-                     use_container_width=True,
-                     type="primary" if is_active else "secondary"):
-            st.session_state.menu = key
-            st.rerun()
+with col_nav1:
+    if st.button("🔍  알릴의무 필터", key="nav_disclosure",
+                 use_container_width=True,
+                 type="primary" if st.session_state.menu == "disclosure" else "secondary"):
+        st.session_state.menu = "disclosure"
+        st.rerun()
+with col_nav2:
+    if st.button("🔄  보장분석 비포&에프터", key="nav_before_after",
+                 use_container_width=True,
+                 type="primary" if st.session_state.menu == "before_after" else "secondary"):
+        st.session_state.menu = "before_after"
+        st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 상수 및 헬퍼 함수
