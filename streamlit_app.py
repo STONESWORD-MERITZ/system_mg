@@ -71,6 +71,13 @@ div[data-testid="stToolbar"],
 }
 [data-testid="stMainBlockContainer"] { padding-top: 0 !important; }
 
+/* ── 홈 iframe 전체 덮기 ── */
+.home-iframe-wrap iframe,
+iframe[title="components.html"] {
+    border: none !important;
+    display: block !important;
+}
+
 /* ── 사이드바 완전 숨김 ── */
 section[data-testid="stSidebar"],
 [data-testid="collapsedControl"] {
@@ -616,13 +623,29 @@ if menu not in ("home", "before_after", "disclosure"):
 # PAGE: 홈 (랜딩 페이지)
 # ══════════════════════════════════════════
 if menu == "home":
-    # 홈 전용 — stApp 배경 다크
+    # 홈 전용 — stApp 전체 다크 + 여백 제거 + iframe 전체 확장
     st.markdown("""
     <style>
-    html, body, .stApp, [data-testid="stAppViewContainer"],
-    [data-testid="stMain"], .main, .block-container {
-        background: #070f1f !important;
-        padding-top: 0 !important;
+    html, body,
+    .stApp,
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    .main,
+    .block-container,
+    [data-testid="stMainBlockContainer"],
+    section.main > div { background: #070f1f !important; }
+
+    /* 홈일 때 블록 패딩 완전 제거 */
+    [data-testid="stMainBlockContainer"],
+    .main .block-container { padding: 0 !important; margin: 0 !important; }
+
+    /* iframe 경계 없애기 */
+    [data-testid="stMainBlockContainer"] iframe,
+    .element-container iframe {
+        border: none !important;
+        display: block !important;
+        margin: 0 !important;
+        width: 100% !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -780,13 +803,13 @@ if menu == "home":
         기존·신규 보장을 한눈에 비교해 드립니다.
       </div>
       <div class="cards">
-        <div class="card" onclick="window.parent.location.href='?goto=disclosure'">
+        <div class="card" onclick="window.top.location.href='?goto=disclosure'">
           <div class="card-label">Feature 01</div>
           <div class="card-title">알릴의무 필터</div>
           <div class="card-desc">심평원 진료 PDF를 업로드하면 AI가 고지 항목을 자동으로 추출합니다. 건강체·간편심사 기준 모두 지원합니다.</div>
           <div class="card-arrow">시작하기 →</div>
         </div>
-        <div class="card" onclick="window.parent.location.href='?goto=before_after'">
+        <div class="card" onclick="window.top.location.href='?goto=before_after'">
           <div class="card-label">Feature 02</div>
           <div class="card-title">보장분석 비포&에프터</div>
           <div class="card-desc">기존 보장내역과 신규 제안서를 비교해 리모델링 근거를 시각적으로 제시합니다. 고객 설득에 바로 활용 가능합니다.</div>
@@ -797,7 +820,7 @@ if menu == "home":
     </div>
     </body>
     </html>
-    """, height=760, scrolling=False)
+    """, height=800, scrolling=False)
 
 
 # ══════════════════════════════════════════
