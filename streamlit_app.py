@@ -31,6 +31,14 @@ st.set_page_config(
 if "menu" not in st.session_state:
     st.session_state.menu = "home"
 
+# 홈 카드 클릭 → 쿼리 파라미터로 메뉴 전환
+if "goto" in st.query_params:
+    _goto = st.query_params["goto"]
+    if _goto in ("disclosure", "before_after", "home"):
+        st.session_state.menu = _goto
+    st.query_params.clear()
+    st.rerun()
+
 # ==========================================
 # CSS — ConnectionLabs 스타일
 # ==========================================
@@ -594,15 +602,9 @@ if menu == "home":
             심평원 진료 데이터를 AI가 분석해 알릴의무 항목을 자동 추출하고<br>
             기존·신규 보장을 한눈에 비교해 드립니다.
         </div>
-    </div>
-    """, unsafe_allow_html=True)
 
-    col_l, col_c, col_r = st.columns([1, 4, 1])
-    with col_c:
-        card_col1, card_col2 = st.columns(2)
-        with card_col1:
-            st.markdown("""
-            <div class="home-card">
+        <div class="home-cards">
+            <div class="home-card" onclick="window.location.href='?goto=disclosure'">
                 <div class="home-card-title">알릴의무 필터</div>
                 <div class="home-card-desc">
                     심평원 진료 PDF를 업로드하면<br>
@@ -611,14 +613,7 @@ if menu == "home":
                 </div>
                 <div class="home-card-arrow">시작하기 →</div>
             </div>
-            """, unsafe_allow_html=True)
-            if st.button("알릴의무 필터 시작", key="home_to_disclosure", use_container_width=True):
-                st.session_state.menu = "disclosure"
-                st.rerun()
-
-        with card_col2:
-            st.markdown("""
-            <div class="home-card">
+            <div class="home-card" onclick="window.location.href='?goto=before_after'">
                 <div class="home-card-title">보장분석 비포&amp;에프터</div>
                 <div class="home-card-desc">
                     기존 보장내역과 신규 제안서를 비교해<br>
@@ -627,16 +622,9 @@ if menu == "home":
                 </div>
                 <div class="home-card-arrow">시작하기 →</div>
             </div>
-            """, unsafe_allow_html=True)
-            if st.button("보장분석 시작", key="home_to_before_after", use_container_width=True):
-                st.session_state.menu = "before_after"
-                st.rerun()
+        </div>
 
-    st.markdown("""
-    <div style="text-align:center;margin-top:8px;padding-bottom:40px;">
-        <span style="font-size:0.72rem;color:#d1d5db;">
-            SURIT · 설계사에게 확신을 주다 · Powered by Google Gemini
-        </span>
+        <div class="home-footer">SURIT · 설계사에게 확신을 주다 · Powered by Google Gemini</div>
     </div>
     """, unsafe_allow_html=True)
 
