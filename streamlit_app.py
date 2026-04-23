@@ -75,68 +75,55 @@ section[data-testid="stSidebar"],
 /* ══════════════════════════════
    상단 네비게이션 바
 ══════════════════════════════ */
-.topnav {
-    display: flex;
-    align-items: center;
-    background: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 0 8px;
-    height: 56px;
-    margin: 0 -1.5rem 20px -1.5rem;
-    position: sticky;
-    top: 0;
-    z-index: 999;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-.nav-logo {
-    font-size: 1rem;
-    font-weight: 800;
-    color: #111827 !important;
-    letter-spacing: -.02em;
-    padding: 0 20px;
-    line-height: 1.2;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-.nav-logo-sub {
-    font-size: 0.6rem;
-    font-weight: 500;
-    color: #9ca3af !important;
-    letter-spacing: 0;
-    display: block;
-}
-.nav-divider {
-    width: 1px;
-    height: 20px;
-    background: #e5e7eb;
-    margin: 0 4px;
-    flex-shrink: 0;
+
+/* 마커 div 바로 다음 Streamlit columns 블록을 nav bar로 */
+#surit-nav + div[data-testid="stHorizontalBlock"] {
+    background: #ffffff !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    padding: 0 16px !important;
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999 !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04) !important;
+    margin: 0 -1.5rem 20px -1.5rem !important;
+    align-items: stretch !important;
 }
 
-/* 네비 탭 버튼 스타일 */
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button,
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button {
+/* 네비 모든 버튼 공통 */
+#surit-nav + div[data-testid="stHorizontalBlock"] .stButton button {
     height: 56px !important;
     background: transparent !important;
     border: none !important;
     border-bottom: 3px solid transparent !important;
     border-radius: 0 !important;
-    font-size: 0.84rem !important;
+    font-size: 0.9rem !important;
     font-weight: 600 !important;
     color: #6b7280 !important;
-    padding: 0 18px !important;
+    padding: 0 20px !important;
     box-shadow: none !important;
-    transition: all 0.15s !important;
-    margin-bottom: -1px !important;
+    transition: color 0.15s, border-color 0.15s !important;
     white-space: nowrap !important;
+    width: 100% !important;
 }
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button:hover,
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button:hover {
+#surit-nav + div[data-testid="stHorizontalBlock"] .stButton button:hover {
     color: #111827 !important;
-    background: #f9fafb !important;
+    background: transparent !important;
 }
-div[data-testid="stHorizontalBlock"] > div:nth-child(2) .stButton button[kind="primary"],
-div[data-testid="stHorizontalBlock"] > div:nth-child(3) .stButton button[kind="primary"] {
+
+/* 로고 버튼 */
+#surit-nav + div[data-testid="stHorizontalBlock"] > div:first-child .stButton button {
+    font-size: 1.05rem !important;
+    font-weight: 900 !important;
+    color: #111827 !important;
+    letter-spacing: -.03em !important;
+    padding: 0 24px 0 8px !important;
+}
+#surit-nav + div[data-testid="stHorizontalBlock"] > div:first-child .stButton button:hover {
+    color: #3b82f6 !important;
+}
+
+/* 활성 탭 */
+#surit-nav + div[data-testid="stHorizontalBlock"] .stButton button[kind="primary"] {
     color: #3b82f6 !important;
     border-bottom: 3px solid #3b82f6 !important;
     font-weight: 700 !important;
@@ -513,27 +500,24 @@ button[data-testid="baseButton-secondary"][kind="secondary"] {
 # 상단 네비게이션 바
 # ==========================================
 _m = st.session_state.menu
-st.markdown('<div class="topnav">', unsafe_allow_html=True)
-_nc0, _nc1, _nc2, _nc3, _nsp = st.columns([1.6, 2.2, 3, 2.2, 6])
+st.markdown('<div id="surit-nav"></div>', unsafe_allow_html=True)
+_nc0, _nc1, _nc2, _nsp = st.columns([1.4, 2.0, 3.0, 8.6])
 with _nc0:
-    st.markdown('<div class="nav-logo-btn">', unsafe_allow_html=True)
     if st.button("SURIT", key="nav_home", use_container_width=True):
         st.session_state.menu = "home"
         st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 with _nc1:
-    if st.button("🔍  알릴의무 필터", key="nav_disclosure",
+    if st.button("알릴의무 필터", key="nav_disclosure",
                  use_container_width=True,
                  type="primary" if _m == "disclosure" else "secondary"):
         st.session_state.menu = "disclosure"
         st.rerun()
 with _nc2:
-    if st.button("🔄  보장분석 비포&에프터", key="nav_before_after",
+    if st.button("보장분석 비포&에프터", key="nav_before_after",
                  use_container_width=True,
                  type="primary" if _m == "before_after" else "secondary"):
         st.session_state.menu = "before_after"
         st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 상수 및 헬퍼 함수
@@ -600,7 +584,7 @@ if menu not in ("home", "before_after", "disclosure"):
 if menu == "home":
     st.markdown("""
     <div class="home-wrap">
-        <div class="home-badge">🛡️ 설계사 전용 AI 플랫폼</div>
+        <div class="home-badge">설계사 전용 AI 플랫폼</div>
         <div class="home-logo">SUR<span>IT</span></div>
         <div class="home-headline">
             보험의 확신,<br>
@@ -619,7 +603,6 @@ if menu == "home":
         with card_col1:
             st.markdown("""
             <div class="home-card">
-                <span class="home-card-icon">🔍</span>
                 <div class="home-card-title">알릴의무 필터</div>
                 <div class="home-card-desc">
                     심평원 진료 PDF를 업로드하면<br>
@@ -636,7 +619,6 @@ if menu == "home":
         with card_col2:
             st.markdown("""
             <div class="home-card">
-                <span class="home-card-icon">🔄</span>
                 <div class="home-card-title">보장분석 비포&amp;에프터</div>
                 <div class="home-card-desc">
                     기존 보장내역과 신규 제안서를 비교해<br>
