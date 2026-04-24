@@ -794,18 +794,18 @@ if menu == "home":
     [data-testid="stVerticalBlockBorderWrapper"] div { color: rgba(255,255,255,0.9) !important; }
     [data-testid="stVerticalBlockBorderWrapper"] .stButton button {
         background: transparent !important;
-        border: 1.5px solid rgba(96,165,250,0.6) !important;
+        border: 1.5px solid rgba(255,255,255,0.22) !important;
         border-radius: 10px !important;
         color: #60a5fa !important;
         font-weight: 700 !important;
         font-size: 0.84rem !important;
-        box-shadow: 0 0 0 0 transparent !important;
+        box-shadow: none !important;
         transition: all 0.18s !important;
         letter-spacing: 0.01em !important;
     }
     [data-testid="stVerticalBlockBorderWrapper"] .stButton button:hover {
         background: rgba(96,165,250,0.12) !important;
-        border-color: #60a5fa !important;
+        border-color: rgba(96,165,250,0.7) !important;
         box-shadow: 0 0 16px rgba(96,165,250,0.25) !important;
         transform: translateY(-1px) !important;
     }
