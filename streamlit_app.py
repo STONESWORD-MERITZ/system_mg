@@ -406,23 +406,34 @@ div[data-testid="stTextArea"] label {
 }
 
 /* ── 라디오 버튼 다크 ── */
+/* 기본 옵션 텍스트 — 흰색 명확히 */
 [data-testid="stRadio"] div[role="radiogroup"] label {
-    color: rgba(255,255,255,0.82) !important;
+    color: rgba(255,255,255,0.9) !important;
     font-size: 0.88rem !important;
-    font-weight: 500 !important;
+    font-weight: 600 !important;
+    background: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    border-radius: 8px !important;
+    padding: 6px 14px 6px 10px !important;
+    margin-right: 6px !important;
+    transition: all 0.15s !important;
 }
-/* 선택된 라디오 옵션 강조 */
+/* 선택된 옵션 — 파란 테두리 + 파란 글씨 */
 [data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     color: #60a5fa !important;
     font-weight: 700 !important;
+    background: rgba(59,130,246,0.12) !important;
+    border-color: rgba(96,165,250,0.6) !important;
+    box-shadow: 0 0 0 1px rgba(96,165,250,0.3) !important;
 }
-/* 라디오 서클 색상 */
+/* 라디오 서클 */
 [data-testid="stRadio"] input[type="radio"] {
     accent-color: #3b82f6 !important;
-    width: 15px !important; height: 15px !important;
+    width: 14px !important; height: 14px !important;
 }
-/* 라디오 전체 컨테이너 배경 */
+/* 라디오 전체 컨테이너 */
 [data-testid="stRadio"] { background: transparent !important; }
+[data-testid="stRadio"] div[role="radiogroup"] { gap: 4px !important; }
 
 /* ── 날짜 입력 다크 ── */
 [data-testid="stDateInput"] input {
@@ -782,18 +793,20 @@ if menu == "home":
     [data-testid="stVerticalBlockBorderWrapper"] p,
     [data-testid="stVerticalBlockBorderWrapper"] div { color: rgba(255,255,255,0.9) !important; }
     [data-testid="stVerticalBlockBorderWrapper"] .stButton button {
-        background: rgba(59,130,246,0.88) !important;
-        border: none !important;
+        background: transparent !important;
+        border: 1.5px solid rgba(96,165,250,0.6) !important;
         border-radius: 10px !important;
-        color: #ffffff !important;
+        color: #60a5fa !important;
         font-weight: 700 !important;
         font-size: 0.84rem !important;
-        box-shadow: 0 2px 12px rgba(59,130,246,0.3) !important;
-        transition: all 0.15s !important;
+        box-shadow: 0 0 0 0 transparent !important;
+        transition: all 0.18s !important;
+        letter-spacing: 0.01em !important;
     }
     [data-testid="stVerticalBlockBorderWrapper"] .stButton button:hover {
-        background: rgba(37,99,235,1) !important;
-        box-shadow: 0 4px 20px rgba(59,130,246,0.45) !important;
+        background: rgba(96,165,250,0.12) !important;
+        border-color: #60a5fa !important;
+        box-shadow: 0 0 16px rgba(96,165,250,0.25) !important;
         transform: translateY(-1px) !important;
     }
     </style>
